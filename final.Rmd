@@ -1,0 +1,110 @@
+---
+title: "Information Epidemics: Modeling Search Trends during the GameStop Short Squeeze Using Stochastic Compartmental Models"
+subtitle: STATS 531 Final Project (W21)
+author: "Eric Chen, Bella Chen"
+output:
+  html_document:
+    toc: yes
+    toc_depth: 3
+    theme: flatly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	warning = FALSE,
+	message = FALSE,
+	include = TRUE,
+	comment='',
+	fig.align = "center"
+)
+```
+
+```{r load_packages, include=FALSE}
+library(pomp)
+library(tidyverse)
+
+read_csv('gme.csv') -> gme
+```
+
+## Introduction
+
+Social scientists have long drawn comparisons between the spread of information and the spread of disease. Methods from epidemiology have been used to model such dynamics by treating an idea, meme, or news event as the infectious agent; this analogy has only grown in popularity with the explosive growth of social media  [[1](https://www.sciencedirect.com/science/article/pii/S0307904X11002824), [2](https://engineering.stanford.edu/magazine/article/how-fake-news-spreads-real-virus)].
+
+In this project, we apply epidemiological methods -- specifically, compartmental models -- to model information flow during the 2021 GameStop short squeeze, an event in which thousands of Reddit users coordinated to buy shares of the gaming company GameStop, having anticipated a short by major hedge funds. The resulting jump in stock price caused the hedge funds to incur significant losses, resulting in a flurry of attention on both social media sites and major news networks [[3](https://en.wikipedia.org/wiki/GameStop_short_squeeze)].
+
+We use keyword search frequency as a proxy for the "spread" of news. The data was downloaded from Google Trends, consisting of daily measurements over a 90-day period [[4](https://trends.google.com/trends/)]. We used the following search terms associated with the event: "gme", "gamestop", "dogecoin", "squeeze", "stocks", "wallstreetbets", and "wsb". 
+
+<div style='color:red'>
+[something about our goals here]
+</div>
+------------
+
+## Exploratory Data Analysis
+
+```{r echo=FALSE}
+# gme %>%
+#   ggplot(aes(date, count)) + 
+#   geom_line(color='#69b3a2', size=1) +
+#     ylab("normalized search frequency") +
+#     ggtitle('Normalized Search Frequency of the Term "gme"') +
+#     theme(plot.title=element_text(hjust=0.5))
+```
+
+<div style='color:red'>
+
+TODO: fix data types in dataframe for plotting
+
+[comments about time series here]
+
+[could also include ACF / seasonality analysis]
+
+</div>
+
+------------
+
+## Model Structure
+
+### Compartments
+
+We model our data with a compartmental model, commonly used in epidemiological studies -- specifically, we use a **SIRS model with delay**.
+
+We define *susceptible* in this context to mean individuals who have not yet heard about the short squeeze, *infected* to mean individuals who have heard about the short squeeze, and *recovered* to refer to individuals who have lost interest in the short squeeze and have no further inclination to search about it. In analogy with the original SIR model, the *reporting rate* would be the proportion of individuals who end up actually searching about the event online.
+
+We include three latent susceptible states $S_1$, $S_2$, and $S_3$. Intuitively, these three states are meant to differentiate between individuals who obtain their news from social media and individuals who may follow more traditional news sources. Prior research has shown that information spreads faster through social media than through sources such as news networks and newspapers <span style='color:red'>[CITATION NEEDED]</span>. Thus, we have included a potential delay to represent individuals who are "late" in hearing about the short squeeze. Individuals progress from $S_1$ to $S_2$, from $S_2$ to either $S_3$ or the infected state $I$, and from $S_3$ to $I$ only.
+
+Finally, consider that the popularity of a trend can resurge long after the initial event; indeed, this behavior seems to be evident in the data <span style='color:red'>[CITATION NEEDED]</span>. Because of this, we suppose that recovered individuals (represented by the state $R$) move back into the initial susceptible state $S_1$ after some time. Our model is summarized in the diagram below.
+
+<div style='margin:40px'>
+<center>
+![Figure 1: Model Diagram](model.png)
+</center>
+</div>
+
+
+### Transitions
+
+We model the state transitions using a binomial distribution with exponential transition probabilities. 
+
+<div style='color:red'>
+
+TODO: write a bunch of equations
+
+</div>
+
+------------
+
+## References  
+
+[1] [Wang, Lin & Wood, Brendan](https://www.sciencedirect.com/science/article/pii/S0307904X11002824), "An Epidemiological Approach to Model the Viral Propagation of Memes". November 11, 2011.
+
+[2] [Stanford Engineering](https://engineering.stanford.edu/magazine/article/how-fake-news-spreads-real-virus), "How Fake News Spreads Like a Real Virus". October 9, 2019.
+
+[3] [Wikipedia](https://en.wikipedia.org/wiki/GameStop_short_squeeze), "GameStop Short Squeeze". Accessed April 8, 2021.
+
+[4] [Google Trends](https://trends.google.com/trends/), Google. Accessed April 6, 2021.
+
+Our project took inspiration from the following former STATS 531 projects: [W20 Project 32](https://ionides.github.io/531w20/final_project/Project32/final.html) for the SIR model with delay, and [W18 Project 13](https://ionides.github.io/531w18/final_project/13/final.html) and [W20 Project 34](https://ionides.github.io/531w20/final_project/Project34/final.html) for the idea of applying epidemiological models to information spread.
+
+*All uncited statistical methods were obtained by consulting the [STATS 531](https://ionides.github.io/531w21/) class notes.*
+
