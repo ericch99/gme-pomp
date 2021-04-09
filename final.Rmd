@@ -63,15 +63,15 @@ TODO: fix data types in dataframe for plotting
 
 ------------
 
-## Model Structure
+## Model Design
 
-### Compartments
+### Model Structure
 
 We model our data with a compartmental model, commonly used in epidemiological studies -- specifically, we use a **SIRS model with delay**.
 
 We define *susceptible* in this context to mean individuals who have not yet heard about the short squeeze, *infected* to mean individuals who have heard about the short squeeze, and *recovered* to refer to individuals who have lost interest in the short squeeze and have no further inclination to search about it. In analogy with the original SIR model, the *reporting rate* would be the proportion of individuals who end up actually searching about the event online.
 
-We include three latent susceptible states $S_1$, $S_2$, and $S_3$. Intuitively, these three states are meant to differentiate between individuals who obtain their news from social media and individuals who may follow more traditional news sources. Prior research has shown that information spreads faster through social media than through sources such as news networks and newspapers <span style='color:red'>[CITATION NEEDED]</span>. Thus, we have included a potential delay to represent individuals who are "late" in hearing about the short squeeze. Individuals progress from $S_1$ to $S_2$, from $S_2$ to either $S_3$ or the infected state $I$, and from $S_3$ to $I$ only.
+We include two latent susceptible states $S_1$ and $S_2$. Intuitively, these two states are meant to differentiate between individuals who obtain their news from social media and individuals who may follow more traditional news sources. Prior research has shown that information spreads faster through social media than through sources such as news networks and newspapers <span style='color:red'>[CITATION NEEDED]</span>. Thus, we have included a potential delay to represent individuals who are "late" in hearing about the short squeeze. Individuals progress from $S_1$ to either $S_2$ or the infected state $I$, and from $S_2$ to $I$ only.
 
 Finally, consider that the popularity of a trend can resurge long after the initial event; indeed, this behavior seems to be evident in the data <span style='color:red'>[CITATION NEEDED]</span>. Because of this, we suppose that recovered individuals (represented by the state $R$) move back into the initial susceptible state $S_1$ after some time. Our model is summarized in the diagram below.
 
@@ -82,14 +82,40 @@ Finally, consider that the popularity of a trend can resurge long after the init
 </div>
 
 
-### Transitions
+### Mathematical Formulation
 
-We model the state transitions using a binomial distribution with exponential transition probabilities. 
+The number of individuals in each compartment, at each time point $t$ are given by the following equations:
+
+\begin{align*}
+S_1(t) &= S_1(0) + N_{RS_1}(t) - N_{S_1S_2}(t) - N_{S_1I}(t) \\
+S_2(t) &= S_2(0) + N_{S_1S_2}(t) - N_{S_2I}(t) \\
+I(t) &= I(0) + N_{S_1I}(t) + N_{S_2I}(t) - N_{IR}(t) \\
+R(t) &= R(0) + N_{IR}(t) - N_{RS_1}(t) \\
+\end{align*}
+
+where $N_{XY}$ is a counting process that represents the number of individuals transitioning from state $X$ to state $Y$. The associated compartment transfer rates are given by:
+
+\begin{align*}
+\frac{dN_{S_1S_2}(t)}{dt} &= \mu_{S_1S_2}S_1(t) \\
+\frac{dN_{S_1I}(t)}{dt} &= \mu_{S_1I}(t)S_1(t) = \beta_1I(t)S_1(t) \\
+\frac{dN_{S_2I}(t)}{dt} &= \mu_{S_2I}(t)S_2(t) = \beta_2I(t)S_2(t)\\
+\frac{dN_{IR}(t)}{dt} &= \mu_{IR}I(t) \\
+\frac{dN_{RS_1}(t)}{dt} &= \mu_{RS_1}R(t) \\
+\end{align*}
+
+We use Euler's method to compute approximations to the above rates. In particular, each transfer rate is discretely approximated by a binomial distribution with exponential transition probabilities:
+
+\begin{align*}
+\Delta N_{S_1S_2}(t) &\sim \mathrm{Binomial}(S_1, 1 - e^{-\mu_{S_1S_2}\Delta t}) \\
+\Delta N_{S_1I}(t) &\sim \mathrm{Binomial}(S_1, 1 - e^{-\beta_1\frac{I}{N}\Delta t}) \\
+\Delta N_{S_2I}(t) &\sim \mathrm{Binomial}(S_2, 1 - e^{-\beta_2\frac{I}{N}\Delta t}) \\
+\Delta N_{IR}(t) &\sim \mathrm{Binomial}(I, 1 - e^{-\mu_{IR}\Delta t}) \\
+\Delta N_{RS_1}(t) &\sim \mathrm{Binomial}(R, 1 - e^{-\mu_{RS_1}\Delta t}) \\
+\end{align*}
 
 <div style='color:red'>
-
-TODO: write a bunch of equations
-
+COMMENTS:
+* should $\mu_{RS_1}$ depend on $t$?
 </div>
 
 ------------
@@ -104,7 +130,7 @@ TODO: write a bunch of equations
 
 [4] [Google Trends](https://trends.google.com/trends/), Google. Accessed April 6, 2021.
 
-Our project took inspiration from the following former STATS 531 projects: [W20 Project 32](https://ionides.github.io/531w20/final_project/Project32/final.html) for the SIR model with delay, and [W18 Project 13](https://ionides.github.io/531w18/final_project/13/final.html) and [W20 Project 34](https://ionides.github.io/531w20/final_project/Project34/final.html) for the idea of applying epidemiological models to information spread.
+Our project took inspiration from the following former STATS 531 projects: [W20 Project 32](https://ionides.github.io/531w20/final_project/Project32/final.html) for the SIR model with delay, and <br> [W18 Project 13](https://ionides.github.io/531w18/final_project/13/final.html) and [W20 Project 34](https://ionides.github.io/531w20/final_project/Project34/final.html) for the idea of applying epidemiological models to information spread.
 
 *All uncited statistical methods were obtained by consulting the [STATS 531](https://ionides.github.io/531w21/) class notes.*
 
