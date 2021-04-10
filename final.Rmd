@@ -25,6 +25,7 @@ library(pomp)
 library(tidyverse)
 
 read_csv('gme.csv') -> gme
+read_csv('price.csv') -> price
 ```
 
 ## Introduction
@@ -41,6 +42,34 @@ We use keyword search frequency as a proxy for the "spread" of news. The data wa
 ------------
 
 ## Exploratory Data Analysis
+
+```{r, echo=FALSE}
+# set count = 0 for those <1
+gme$count[as.numeric(gme$count) %>% is.na()] <- 0
+gme$count <- as.numeric(gme$count)
+gme %>% ggplot(aes(x=date,y=count)) + geom_line() + geom_point()
+```
+  The searching count of "GME" reaches its peak in late January, followed by multiple small bumps in the following months. Especially towards the latter half, the trend shows strong weekly seasonality. 
+  ? may be due to most stock exchanges operates during weekdays, not related to GME short squeeze 
+  
+<div style='color:red'>
+
+If we want to include ARMA, the trend doesn't look stationary may need transformation
+
+</div>
+
+```{r, echo=FALSE}
+# acf of gme search 
+acf(gme$count, lag.max = 40, main="auto-correlation of GME search")
+```
+The ACF plot indicates that searching trends is mostly associated with its count within five days.  
+```{r, echo=FALSE}
+# ccf between search and stock price
+ccf(price$High, gme$count, main="cross-correlation between GME search and GME stock price")
+```
+
+  The cross correlation plot shows that popularity of the searching term "GME" is most likely correlated with its stock price about a week ago. This latent effect makes us wonder if the spread of information can be modeled by an SIR model with delay.  
+  
 
 ```{r echo=FALSE}
 # gme %>%
