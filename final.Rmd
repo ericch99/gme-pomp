@@ -34,61 +34,48 @@ Social scientists have long drawn comparisons between the spread of information 
 
 In this project, we apply epidemiological methods -- specifically, compartmental models -- to model information flow during the 2021 GameStop short squeeze, an event in which thousands of Reddit users coordinated to buy shares of the gaming company GameStop, having anticipated a short by major hedge funds. The resulting jump in stock price caused the hedge funds to incur significant losses, resulting in a flurry of attention on both social media sites and major news networks [[3](https://en.wikipedia.org/wiki/GameStop_short_squeeze)].
 
-We use keyword search frequency as a proxy for the "spread" of news. The data was downloaded from Google Trends, consisting of daily measurements over a 90-day period [[4](https://trends.google.com/trends/)]. We used the following search terms associated with the event: "gme", "gamestop", "dogecoin", "squeeze", "stocks", "wallstreetbets", and "wsb". 
+We use search frequency of the term "gme" as a proxy for the spread of news. The data was downloaded from Google Trends [[4](https://trends.google.com/trends/)], consisting of normalized daily measurements over an 88-day period. We also include the price of GameStop stock (\$GME) for the same time period, downloaded from Yahoo Finance [[5](https://finance.yahoo.com/)].
 
-<div style='color:red'>
-[something about our goals here]
-</div>
+The main objectives of this project are as follows: 
+
+1. Model the information spread of a current event using an interpretable model.
+
+2. Draw parallels between the spread of information and the spread of disease.
+
 ------------
 
 ## Exploratory Data Analysis
 
-```{r, echo=FALSE}
+```{r dataplot, echo=FALSE}
 # set count = 0 for those <1
 gme$count[as.numeric(gme$count) %>% is.na()] <- 0
 gme$count <- as.numeric(gme$count)
 gme %>% ggplot(aes(x=date,y=count)) + geom_line() + geom_point()
 ```
-  The searching count of "GME" reaches its peak in late January, followed by multiple small bumps in the following months. Especially towards the latter half, the trend shows strong weekly seasonality. 
-  ? may be due to most stock exchanges operates during weekdays, not related to GME short squeeze 
   
-<div style='color:red'>
+First, we note that the data are normalized to have a maximum value of $100$. Understandably, the search frequency of the term "gme" peaks in late January, during the initial short squeeze. 
 
-If we want to include ARMA, the trend doesn't look stationary may need transformation
+However, this is followed by multiple, smaller peaks in the following months. The trend in the latter half of the data seems to exhibit strong weekly seasonality, as shown in the plot of the smoothed periodogram below. (However, this may be because many stock exchanges are closed on weekends, and not something directly attributable to the GME hype itself.)
 
-</div>
+```{r spectrum, echo=FALSE}
+smoothed <- spectrum(gme$count[45:88], spans=c(5,5,5), main="Periodogram (Smoothed)")
+abline(v=1/7, lty=2, col='red')
+paste0('period corresponding to maximum power (days): ', 1 / smoothed$freq[which.max(smoothed$spec)])
+```
 
-```{r, echo=FALSE}
+Plotting the sample autocorrelation (ACF) of the search frequency and the sample cross-correlation (CCF) between the stock price and the search frequency, we see that there is substantial correlation between values that are within one week of each other.
+
+```{r acf, echo=FALSE}
 # acf of gme search 
-acf(gme$count, lag.max = 40, main="auto-correlation of GME search")
+acf(gme$count, lag.max = 40, main="ACF of search frequency")
 ```
-The ACF plot indicates that searching trends is mostly associated with its count within five days.  
-```{r, echo=FALSE}
+
+```{r ccf, echo=FALSE}
 # ccf between search and stock price
-ccf(price$High, gme$count, main="cross-correlation between GME search and GME stock price")
+ccf(price$High, gme$count, main="CCF between search frequency and stock price")
 ```
 
-  The cross correlation plot shows that popularity of the searching term "GME" is most likely correlated with its stock price about a week ago. This latent effect makes us wonder if the spread of information can be modeled by an SIR model with delay.  
-  
-
-```{r echo=FALSE}
-# gme %>%
-#   ggplot(aes(date, count)) + 
-#   geom_line(color='#69b3a2', size=1) +
-#     ylab("normalized search frequency") +
-#     ggtitle('Normalized Search Frequency of the Term "gme"') +
-#     theme(plot.title=element_text(hjust=0.5))
-```
-
-<div style='color:red'>
-
-TODO: fix data types in dataframe for plotting
-
-[comments about time series here]
-
-[could also include ACF / seasonality analysis]
-
-</div>
+In particular, the CCF plot shows that the search frequency of the term "gme" is most significantly correlated with its stock price about a week ago. This seems to be in line with the seasonality analysis above. This latent effect suggests that the spread of information could be best modeled by including some sort of delay.
 
 ------------
 
@@ -135,11 +122,11 @@ where $N_{XY}$ is a counting process that represents the number of individuals t
 We use Euler's method to compute approximations to the above rates. In particular, each transfer rate is discretely approximated by a binomial distribution with exponential transition probabilities:
 
 \begin{align*}
-\Delta N_{S_1S_2}(t) &\sim \mathrm{Binomial}(S_1, 1 - e^{-\mu_{S_1S_2}\Delta t}) \\
-\Delta N_{S_1I}(t) &\sim \mathrm{Binomial}(S_1, 1 - e^{-\beta_1\frac{I}{N}\Delta t}) \\
-\Delta N_{S_2I}(t) &\sim \mathrm{Binomial}(S_2, 1 - e^{-\beta_2\frac{I}{N}\Delta t}) \\
-\Delta N_{IR}(t) &\sim \mathrm{Binomial}(I, 1 - e^{-\mu_{IR}\Delta t}) \\
-\Delta N_{RS_1}(t) &\sim \mathrm{Binomial}(R, 1 - e^{-\mu_{RS_1}\Delta t}) \\
+\Delta N_{S_1S_2}(t) &\sim \mathrm{Bin}(S_1, 1 - e^{-\mu_{S_1S_2}\Delta t}) \\
+\Delta N_{S_1I}(t) &\sim \mathrm{Bin}(S_1, 1 - e^{-\beta_1\frac{I}{N}\Delta t}) \\
+\Delta N_{S_2I}(t) &\sim \mathrm{Bin}(S_2, 1 - e^{-\beta_2\frac{I}{N}\Delta t}) \\
+\Delta N_{IR}(t) &\sim \mathrm{Bin}(I, 1 - e^{-\mu_{IR}\Delta t}) \\
+\Delta N_{RS_1}(t) &\sim \mathrm{Bin}(R, 1 - e^{-\mu_{RS_1}\Delta t}) \\
 \end{align*}
 
 <div style='color:red'>
@@ -158,6 +145,8 @@ COMMENTS:
 [3] [Wikipedia](https://en.wikipedia.org/wiki/GameStop_short_squeeze), "GameStop Short Squeeze". Accessed April 8, 2021.
 
 [4] [Google Trends](https://trends.google.com/trends/), Google. Accessed April 6, 2021.
+
+[5] [Yahoo Finance](https://finance.yahoo.com/), Yahoo. Accessed April 9, 2021.
 
 Our project took inspiration from the following former STATS 531 projects: [W20 Project 32](https://ionides.github.io/531w20/final_project/Project32/final.html) for the SIR model with delay, and <br> [W18 Project 13](https://ionides.github.io/531w18/final_project/13/final.html) and [W20 Project 34](https://ionides.github.io/531w20/final_project/Project34/final.html) for the idea of applying epidemiological models to information spread.
 
