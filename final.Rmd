@@ -87,9 +87,9 @@ We model our data with a compartmental model, commonly used in epidemiological s
 
 We define *susceptible* in this context to mean individuals who have not yet heard about the short squeeze, *infected* to mean individuals who have heard about the short squeeze, and *recovered* to refer to individuals who have lost interest in the short squeeze and have no further inclination to search about it. In analogy with the original SIR model, the *reporting rate* would be the proportion of individuals who end up actually searching about the event online.
 
-We include two latent susceptible states $S_1$ and $S_2$. Intuitively, these two states are meant to differentiate between individuals who obtain their news from social media and individuals who may follow more traditional news sources. Prior research has shown that information spreads faster through social media than through sources such as news networks and newspapers <span style='color:red'>[CITATION NEEDED]</span>. Thus, we have included a potential delay to represent individuals who are "late" in hearing about the short squeeze. Individuals progress from $S_1$ to either $S_2$ or the infected state $I$, and from $S_2$ to $I$ only.
+We include two latent susceptible states $S_1$ and $S_2$. Intuitively, these two states are meant to differentiate between individuals who obtain their news from social media and individuals who may follow more traditional news sources. Since information tends to spreads faster through social media than through sources such as news networks and newspapers, we have included a potential delay to represent individuals who are "late" in hearing about the short squeeze. Individuals progress from $S_1$ to either $S_2$ or the infected state $I$, and from $S_2$ to $I$ only.
 
-Finally, consider that the popularity of a trend can resurge long after the initial event; indeed, this behavior seems to be evident in the data <span style='color:red'>[CITATION NEEDED]</span>. Because of this, we suppose that recovered individuals (represented by the state $R$) move back into the initial susceptible state $S_1$ after some time. Our model is summarized in the diagram below.
+Finally, consider that the popularity of a trend can resurge long after the initial event; indeed, this behavior seems to be evident in the data. Because of this, we suppose that recovered individuals (represented by the state $R$) move back into the initial susceptible state $S_1$ after some time. Our model is summarized in the diagram below.
 
 <div style='margin:40px'>
 <center>
@@ -122,17 +122,23 @@ where $N_{XY}$ is a counting process that represents the number of individuals t
 We use Euler's method to compute approximations to the above rates. In particular, each transfer rate is discretely approximated by a binomial distribution with exponential transition probabilities:
 
 \begin{align*}
-\Delta N_{S_1S_2}(t) &\sim \mathrm{Bin}(S_1, 1 - e^{-\mu_{S_1S_2}\Delta t}) \\
-\Delta N_{S_1I}(t) &\sim \mathrm{Bin}(S_1, 1 - e^{-\beta_1\frac{I}{N}\Delta t}) \\
-\Delta N_{S_2I}(t) &\sim \mathrm{Bin}(S_2, 1 - e^{-\beta_2\frac{I}{N}\Delta t}) \\
-\Delta N_{IR}(t) &\sim \mathrm{Bin}(I, 1 - e^{-\mu_{IR}\Delta t}) \\
-\Delta N_{RS_1}(t) &\sim \mathrm{Bin}(R, 1 - e^{-\mu_{RS_1}\Delta t}) \\
+\Delta N_{S_1S_2}(t) &\sim \mathrm{Binomial}(S_1, 1 - e^{-\mu_{S_1S_2}\Delta t}) \\
+\Delta N_{S_1I}(t) &\sim \mathrm{Binomial}(S_1, 1 - e^{-\beta_1\frac{I}{N}\Delta t}) \\
+\Delta N_{S_2I}(t) &\sim \mathrm{Binomial}(S_2, 1 - e^{-\beta_2\frac{I}{N}\Delta t}) \\
+\Delta N_{IR}(t) &\sim \mathrm{Binomial}(I, 1 - e^{-\mu_{IR}\Delta t}) \\
+\Delta N_{RS_1}(t) &\sim \mathrm{Binomial}(R, 1 - e^{-\mu_{RS_1}\Delta t}) \\
 \end{align*}
 
 <div style='color:red'>
 COMMENTS:
 * should $\mu_{RS_1}$ depend on $t$?
 </div>
+
+------------
+
+## Parameter Search
+
+
 
 ------------
 
