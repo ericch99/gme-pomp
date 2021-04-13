@@ -87,9 +87,9 @@ We model our data with a compartmental model, commonly used in epidemiological s
 
 We define *susceptible* in this context to mean individuals who have not yet heard about the short squeeze, *infected* to mean individuals who have heard about the short squeeze, and *recovered* to refer to individuals who have lost interest in the short squeeze and have no further inclination to search about it. In analogy with the original SIR model, the *reporting rate* would be the proportion of individuals who end up actually searching about the event online.
 
-We include two latent susceptible states $S_1$ and $S_2$. Intuitively, these two states are meant to differentiate between individuals who obtain their news from social media and individuals who may follow more traditional news sources. Since information tends to spreads faster through social media than through sources such as news networks and newspapers, we have included a potential delay to represent individuals who are "late" in hearing about the short squeeze. Individuals progress from $S_1$ to either $S_2$ or the infected state $I$, and from $S_2$ to $I$ only.
+We include two latent susceptible states $S_1$ and $S_2$. Intuitively, these two states are meant to differentiate between individuals who obtain their news from social media and individuals who may follow more traditional news sources. Prior research has shown that information spreads faster through social media than through sources such as news networks and newspapers <span style='color:red'>[CITATION NEEDED]</span>. Thus, we have included a potential delay to represent individuals who are "late" in hearing about the short squeeze. Individuals progress from $S_1$ to either $S_2$ or the infected state $I$, and from $S_2$ to $I$ only.
 
-Finally, consider that the popularity of a trend can resurge long after the initial event; indeed, this behavior seems to be evident in the data. Because of this, we suppose that recovered individuals (represented by the state $R$) move back into the initial susceptible state $S_1$ after some time. Our model is summarized in the diagram below.
+Finally, consider that the popularity of a trend can resurge long after the initial event; indeed, this behavior seems to be evident in the data <span style='color:red'>[CITATION NEEDED]</span>. Because of this, we suppose that recovered individuals (represented by the state $R$) move back into the initial susceptible state $S_1$ after some time. Our model is summarized in the diagram below.
 
 <div style='margin:40px'>
 <center>
@@ -122,22 +122,53 @@ where $N_{XY}$ is a counting process that represents the number of individuals t
 We use Euler's method to compute approximations to the above rates. In particular, each transfer rate is discretely approximated by a binomial distribution with exponential transition probabilities:
 
 \begin{align*}
-\Delta N_{S_1S_2}(t) &\sim \mathrm{Binomial}(S_1, 1 - e^{-\mu_{S_1S_2}\Delta t}) \\
-\Delta N_{S_1I}(t) &\sim \mathrm{Binomial}(S_1, 1 - e^{-\beta_1\frac{I}{N}\Delta t}) \\
-\Delta N_{S_2I}(t) &\sim \mathrm{Binomial}(S_2, 1 - e^{-\beta_2\frac{I}{N}\Delta t}) \\
-\Delta N_{IR}(t) &\sim \mathrm{Binomial}(I, 1 - e^{-\mu_{IR}\Delta t}) \\
-\Delta N_{RS_1}(t) &\sim \mathrm{Binomial}(R, 1 - e^{-\mu_{RS_1}\Delta t}) \\
+\Delta N_{S_1S_2}(t) &\sim \mathrm{Bin}(S_1, 1 - e^{-\mu_{S_1S_2}\Delta t}) \\
+\Delta N_{S_1I}(t) &\sim \mathrm{Bin}(S_1, 1 - e^{-\beta_1\frac{I}{N}\Delta t}) \\
+\Delta N_{S_2I}(t) &\sim \mathrm{Bin}(S_2, 1 - e^{-\beta_2\frac{I}{N}\Delta t}) \\
+\Delta N_{IR}(t) &\sim \mathrm{Bin}(I, 1 - e^{-\mu_{IR}\Delta t}) \\
+\Delta N_{RS_1}(t) &\sim \mathrm{Bin}(R, 1 - e^{-\mu_{RS_1}\Delta t}) \\
 \end{align*}
 
 <div style='color:red'>
 COMMENTS:
 * should $\mu_{RS_1}$ depend on $t$?
+
+COMMENTS:
+should Recovered have a chance to move back to $S2$?
 </div>
 
-------------
+```{r model implement, echo=FALSE}
+sir_step <- Csnippet("double dN_S1S2 = rbinom(S1,1-exp(-mu_S1S2*dt));
+                      double dN_S1I = rbinom(S1,1-exp(-Beta1*I/N*dt));
+                      double dN_S2I = rbinom(S2,1-exp(-Beta2*I/N*dt));
+                      double dN_IR = rbinom(I,1-exp(-mu_IR*dt));
+                      double dN_RS1 = rbinom(R, 1-exp(-mu_RS1*dt));
+                      S1 -= dN_S1I + dN_S1S2 - dN_RS1;
+                      S2 -= dN_S2I - dN_S1S2;
+                      I += dN_S1I + dN_S2I - dN_IR;
+                      R += dN_IR - dN_RS1")
+  
+sir_init <- Csnippet("S1 = nearbyint(eta*N);
+                      S2 = 0;
+                      I = 1;
+                      R = 0;")
 
-## Parameter Search
+dmeas <- Csnippet("lik = dbinom(count,H,rho,give_log);")
 
+rmeas <- Csnippet("count = rbinom(H,rho);")
+
+cbind(day = 1:nrow(gme), gme) %>% 
+  pomp(times="day",t0=0,
+       rprocess=euler(sir_step,delta.t=1/7),
+       rinit=sir_init,
+       rmeasure=rmeas,
+       dmeasure=dmeas,
+       accumvars="H", 
+       partrans=parameter_trans(log=c("Beta1", "Beta2"),logit=c("rho","eta")),
+       statenames=c("S1","S2","I","R"),
+       paramnames=c("Beta1", "Beta2", "mu_S1S2", "mu_IR","eta", "rho","N") ) -> SIRR
+
+```
 
 
 ------------
