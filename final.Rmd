@@ -146,29 +146,43 @@ sir_step <- Csnippet("double dN_S1S2 = rbinom(S1,1-exp(-mu_S1S2*dt));
                       S1 -= dN_S1I + dN_S1S2 - dN_RS1;
                       S2 -= dN_S2I - dN_S1S2;
                       I += dN_S1I + dN_S2I - dN_IR;
-                      R += dN_IR - dN_RS1")
+                      R += dN_IR - dN_RS1;
+                      H += dN_IR;")
   
 sir_init <- Csnippet("S1 = nearbyint(eta*N);
                       S2 = 0;
                       I = 1;
-                      R = 0;")
+                      R = nearbyint((1-eta)*N); 
+                      H = 0;")
 
-dmeas <- Csnippet("lik = dbinom(count,H,rho,give_log);")
+dgme <- Csnippet("lik = dbinom(count,H,rho,give_log);")
 
-rmeas <- Csnippet("count = rbinom(H,rho);")
+rgme <- Csnippet("count = rbinom(H,rho);")
 
 cbind(day = 1:nrow(gme), gme) %>% 
   pomp(times="day",t0=0,
        rprocess=euler(sir_step,delta.t=1/7),
        rinit=sir_init,
-       rmeasure=rmeas,
-       dmeasure=dmeas,
+       rmeasure=rgme,
+       dmeasure=dgme,
        accumvars="H", 
        partrans=parameter_trans(log=c("Beta1", "Beta2"),logit=c("rho","eta")),
-       statenames=c("S1","S2","I","R"),
-       paramnames=c("Beta1", "Beta2", "mu_S1S2", "mu_IR","eta", "rho","N") ) -> SIRR
+       statenames=c("S1","S2","I","R","H"),
+       paramnames=c("Beta1", "Beta2", "mu_S1S2", "mu_IR", "mu_RS1", "eta", "rho","N") ) -> SSIR
 
 ```
+
+
+```{r}
+SSIR %>%
+  simulate(params=c(Beta1=0.5,Beta2=1,mu_S1S2=0.8,mu_IR=0.2,mu_RS1=0.2,rho=0.6,eta=0.03,N=1000),
+nsim=20,format="data.frame",include.data=TRUE) -> sims
+
+sims %>% ggplot(aes(x=day,y=count,group=.id,color=.id=="data"))+ geom_line()+
+guides(color=FALSE)
+```
+
+
 
 
 ------------
