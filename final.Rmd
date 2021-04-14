@@ -86,10 +86,14 @@ Additionally, it may be interesting to investigate if the stock price can be vie
 
 # 2. Exploratory Data Analysis
 
-```{r dataplot, echo=FALSE}
-# set count = 0 for those <1
+```{r data cleaning, include=FALSE}
 gme$count[as.numeric(gme$count) %>% is.na()] <- 0
 gme$count <- as.numeric(gme$count)
+price$High[price$High %>% is.na()] <- 0
+```
+
+
+```{r dataplot, echo=FALSE}
 gme %>% ggplot(aes(x=date,y=count)) + geom_line() + geom_point() + ggtitle('Search Frequency of "gme", 1/6/2021 – 4/3/2021') +theme(plot.title = element_text(hjust = 0.5))
 ```
   
@@ -159,16 +163,92 @@ We use Euler's method to compute approximations to the above rates. In particula
 \Delta N_{RS_1}(t) &\sim \mathrm{Bin}(R, 1 - e^{-\mu_{RS_1}\Delta t}) \\
 \end{align*}
 
+
+
+### Without H
+
+```{r}
+data <- data_frame(day = 1:nrow(gme), count = gme$count)
+
+gme_statenames <- c("S1", "S2", "I", "R")
+gme_obsnames <- "count"
+gme_t0 <- data$day[1]
+```
+
+```{r}
+gme_covar <- covariate_table(
+  t=data$day,
+  P=price$High,
+  times="t"
+)
+
+gme_rp_names <- c("Beta_1","Beta_2","mu_IR","mu_RS1","base","rho")
+gme_ivp_names <- c("init1","init2")
+gme_fp_names <- c("N")
+gme_paramnames <- c(gme_rp_names,gme_ivp_names, gme_fp_names)
+```
+
+```{r}
+gme_rinit <- Csnippet("
+  S1 = round(init1*N);
+  S2 = round(init2*N);
+  I = 1;
+  R = fmax(N - (S1 + S2 + I), 0);
+")
+
+gme_rprocess <- Csnippet("
+  double dN_S1I = rbinom(S1, 1-exp(-Beta_1*dt));
+  double dN_S2I = rbinom(S2, 1-exp(-Beta_2*dt));
+  double dN_IR = rbinom(I,1-exp(-mu_IR*dt));
+  double dN_RS1 = rbinom(R, 1-exp(-mu_RS1*dt)
+  R += dN_IR;
+  I += (dN_S1I + dN_S2I) - dN_IR;
+  S2 = S1 - dN_S1I;
+  S1 = round(fmax(P, 0));
+")
+
+gme_dmeas <- Csnippet("lik = dbinom(2*count,4,1-exp(-base-rho*I),give_log);")
+gme_rmeas <- Csnippet("count = rbinom(4,1-exp(-base-rho*I))/2;")
+
+gme_partrans <- parameter_trans(
+  log=c("Beta_1","Beta_2","mu_IR","mu_RS1","base", "rho"),
+  logit=c("init1","init2")
+)
+
+SSIR <- pomp(
+  data,
+  times = "day",
+  t0 = gme_t0,
+  rinit = gme_rinit,
+  rprocess = euler(step.fun = gme_rprocess, delta.t=1),
+  rmeasure = gme_rmeas,
+  dmeasure = gme_dmeas,
+  covar = gme_covar,
+  obsnames = gme_obsnames,
+  statenames = gme_statenames,
+  paramnames = gme_paramnames,
+  partrans = gme_partrans
+)
+
+```
+
+------------
+
+
 ## 3.3. Simulations
+
+### With H
 
 ```{r model implement, echo=FALSE}
 sir_step <- Csnippet("double dN_S1S2 = rbinom(S1,1-exp(-mu_S1S2*dt));
+                      S1 -= dN_S1S2;
+                      S2 += dN_S1S2;
                       double dN_S1I = rbinom(S1,1-exp(-Beta1*I/N*dt));
                       double dN_S2I = rbinom(S2,1-exp(-Beta2*I/N*dt));
                       double dN_IR = rbinom(I,1-exp(-mu_IR*dt));
                       double dN_RS1 = rbinom(R, 1-exp(-mu_RS1*dt));
-                      S1 -= dN_S1I + dN_S1S2 - dN_RS1;
-                      S2 -= dN_S2I - dN_S1S2;
+                      S1 -= dN_S1I - dN_RS1;
+                      S2 -= dN_S2I;
                       I += dN_S1I + dN_S2I - dN_IR;
                       R += dN_IR - dN_RS1;
                       H += dN_IR;")
@@ -176,16 +256,18 @@ sir_step <- Csnippet("double dN_S1S2 = rbinom(S1,1-exp(-mu_S1S2*dt));
 sir_init <- Csnippet("S1 = nearbyint(eta*N);
                       S2 = 0;
                       I = 1;
-                      R = 0; 
+                      R = fmax(N-(S1+S2+I),0); 
                       H = 0;")
 
 dgme <- Csnippet("lik = dbinom(count,H,rho,give_log);")
 
 rgme <- Csnippet("count = rbinom(H,rho);")
 
-cbind(day = 1:nrow(gme), gme) %>% 
+gme <- as.data.frame(cbind(day = 1:nrow(gme), count=gme$count))
+
+gme %>% 
   pomp(times="day",t0=0,
-       rprocess=euler(sir_step,delta.t=1/7),
+       rprocess=euler(sir_step,delta.t=1),
        rinit=sir_init,
        rmeasure=rgme,
        dmeasure=dgme,
@@ -193,7 +275,6 @@ cbind(day = 1:nrow(gme), gme) %>%
        partrans=parameter_trans(log=c("Beta1", "Beta2", "mu_S1S2", "mu_IR", "mu_RS1"),logit=c("rho","eta")),
        statenames=c("S1","S2","I","R","H"),
        paramnames=c("Beta1", "Beta2", "mu_S1S2", "mu_IR", "mu_RS1", "eta", "rho","N")) -> SSIR
-
 ```
 
 We simulate 50 trajectories from some manually chosen parameters in order to check the validity of our model. Noticeably, many of the trajectories seem to peak early, then level off around some smaller, nonzero value, much like the real data. Thus, we conclude that our model is reasonable, and continue on to conduct a parameter search.
@@ -235,6 +316,49 @@ Nreps_global <- switch(run_level, 10, 20, 100)
 Nsim <- switch(run_level, 50, 100, 500)
 
 ```
+
+```{r}
+params=c(Beta1=1,Beta2=1,mu_S1S2=0.5,mu_IR=0.5,mu_RS1=0.02,rho=0.8,eta=0.8,N=2000)
+params=c(Beta1=0.03,Beta2=1.5,mu_S1S2=0.9,mu_IR=0.8,mu_RS1=0.03,rho=0.8,eta=0.7,N=1500)
+SSIR %>% pfilter(Np=500, params=params) -> pf
+
+plot(pf) 
+
+fixed_params <- c(N=2000, rho=0.8)
+logLik(pf)
+```
+
+
+```{r, echo=FALSE, cache=TRUE}
+library(doParallel)
+registerDoParallel()
+library(doRNG)
+registerDoRNG(3899882)
+
+
+stew(file="results/pf1.rda",{
+  t1 <- system.time(
+    pf1 <- foreach(i=1:20,.packages='pomp') %dopar% 
+      pfilter(SSIR,Np=gme_Np,params=params)
+) })
+L1 <- logmeanexp(sapply(pf1,logLik),se=TRUE)
+L1
+```
+
+```{r, cache=TRUE}
+set.seed(2062379496)
+runif_design( lower=c(Beta=10,mu_EI = 0.3, mu_IR=0.1, rho=0.2,eta=0), 
+              upper=c(Beta=60,mu_EI = 0.7, mu_IR=0.7, rho=0.9,eta=0.4),
+              nseq=300) -> guesses
+mf1 <- mifs_local[[1]]
+
+registerDoRNG(1270401374)
+foreach(guess=iter(guesses,"row"), .combine=rbind) %dopar% {
+  mf1 %>% mif2(params=c(unlist(guess),fixed_params)) %>% mif2(Nmif=100) -> mf 
+  replicate(10, mf %>% pfilter(Np=20) %>% logLik()) %>% logmeanexp(se=TRUE) -> ll
+  mf %>% coef() %>% bind_rows() %>% bind_cols(loglik=ll[1],loglik.se=ll[2]) 
+  } -> results
+
 
 ```{r grid, echo=FALSE}
 # runif_design(
