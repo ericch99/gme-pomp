@@ -36,6 +36,34 @@ read_csv('gme.csv') -> gme
 read_csv('price.csv') -> price
 ```
 
+
+<div style='color:red'>
+TODO:
+
+- Section 4 (Parameter Search)
+  * find optimal parameters
+  * compute optimal likelihood
+  * what else?
+
+- Section 5 (Diagnostics)
+  * scatterplot matrix
+  * profile likelihoods
+  * what else?
+
+- Section 6 (Stock Price)
+  * all of 6.2 - mathematical formulation of model
+  * all of 6.3 - global search, again
+  * all of 6.4 - likelihood ratio test
+
+- Section 7 (Conclusions)
+
+- Section 8 (Limitations)
+
+- work breakdown (at very end)
+</div>
+
+
+
 # 1. Introduction
 
 Social scientists have long drawn comparisons between the spread of information and the spread of disease. Methods from epidemiology have been used to model such dynamics by treating an idea, meme, or news event as the infectious agent; this analogy has only grown in popularity with the explosive growth of social media  [[1](https://www.sciencedirect.com/science/article/pii/S0307904X11002824), [2](https://engineering.stanford.edu/magazine/article/how-fake-news-spreads-real-virus)].
@@ -267,6 +295,15 @@ We see that the search frequency of the term "gme" is most significantly correla
 
 # 7. Conclusion
 
+* compare $\beta_1$ to $\beta_2$ - make conclusion about speed of info transmission between news sources
+* interpret $\mu_{IR}$, rate of recovery (hype factor) - how fast do trends fade?
+* interpret $\eta$, initial susceptible fraction - what is the reach of one influential person?
+* interpret $\mu_{RS_1}$, the resurgence rate - how often / likely to trends reoccur?
+
+* is there evidence that incorporating stock price results in a better fit? aka, is there evidence that stock price is an external forcing variable for search frequency?
+
+* how well was the data modeled by the SIRS model? What can we say about the relationship between information and disease?
+
 ------------
 
 # 8. Limitations 
@@ -301,7 +338,6 @@ Our project took inspiration from the following former STATS 531 projects: [W20 
 
 ----
 
-<span style='color:red'>TODO: this section!</span>
 We collaborated on all sections of the project, but the primary assignees by section are as follows:
 
 **Eric**: 

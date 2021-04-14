@@ -409,6 +409,32 @@ summary {
 </ul>
 </div>
 
+<div style="color:red">
+<p>TODO:</p>
+<ul>
+<li><p>Section 4 (Parameter Search)</p>
+<ul>
+<li>find optimal parameters</li>
+<li>compute optimal likelihood</li>
+<li>what else?</li>
+</ul></li>
+<li><p>Section 5 (Diagnostics)</p>
+<ul>
+<li>scatterplot matrix</li>
+<li>profile likelihoods</li>
+<li>what else?</li>
+</ul></li>
+<li><p>Section 6 (Stock Price)</p>
+<ul>
+<li>all of 6.2 - mathematical formulation of model</li>
+<li>all of 6.3 - global search, again</li>
+<li>all of 6.4 - likelihood ratio test</li>
+</ul></li>
+<li><p>Section 7 (Conclusions)</p></li>
+<li><p>Section 8 (Limitations)</p></li>
+<li><p>work breakdown (at very end)</p></li>
+</ul>
+</div>
 <div id="introduction" class="section level1">
 <h1>1. Introduction</h1>
 <p>Social scientists have long drawn comparisons between the spread of information and the spread of disease. Methods from epidemiology have been used to model such dynamics by treating an idea, meme, or news event as the infectious agent; this analogy has only grown in popularity with the explosive growth of social media [<a href="https://www.sciencedirect.com/science/article/pii/S0307904X11002824">1</a>, <a href="https://engineering.stanford.edu/magazine/article/how-fake-news-spreads-real-virus">2</a>].</p>
@@ -539,6 +565,14 @@ R(t) &amp;= R(0) + N_{IR}(t) - N_{RS_1}(t) \\
 </div>
 <div id="conclusion" class="section level1">
 <h1>7. Conclusion</h1>
+<ul>
+<li><p>compare <span class="math inline">\(\beta_1\)</span> to <span class="math inline">\(\beta_2\)</span> - make conclusion about speed of info transmission between news sources</p></li>
+<li><p>interpret <span class="math inline">\(\mu_{IR}\)</span>, rate of recovery (hype factor) - how fast do trends fade?</p></li>
+<li><p>interpret <span class="math inline">\(\eta\)</span>, initial susceptible fraction - what is the reach of one influential person?</p></li>
+<li><p>interpret <span class="math inline">\(\mu_{RS_1}\)</span>, the resurgence rate - how often / likely to trends reoccur?</p></li>
+<li><p>is there evidence that incorporating stock price results in a better fit? aka, is there evidence that stock price is an external forcing variable for search frequency?</p></li>
+<li><p>how well was the data modeled by the SIRS model? What can we say about the relationship between information and disease?</p></li>
+</ul>
 <hr />
 </div>
 <div id="limitations" class="section level1">
@@ -559,11 +593,11 @@ R(t) &amp;= R(0) + N_{IR}(t) - N_{RS_1}(t) \\
 <p>[5] <a href="https://finance.yahoo.com/">Yahoo Finance</a>, Yahoo. Accessed April 9, 2021.</p>
 <p>[6] <a href="https://www.investopedia.com/terms/w/weekendeffect.asp">Investopedia</a>, “Weekend Effect”. Accessed April 13, 2021.</p>
 <p>[7] <a href="https://larswillnat.files.wordpress.com/2014/05/2013-american-journalist-key-findings.pdf">Indiana University</a>, School of Journalism. “The American Journalist in the Digital Age: Key Findings”. 2014.</p>
-<p>[8] <a href="https://www.journalism.org/2015/07/14/the-evolving-role-of-news-on-twitter-and-facebook/">Pew Research Center</a>, Journalism &amp; Media. “The Evolving Role of News on Twitter and Facebook”. July 14, 2015</p>
+<p>[8] <a href="https://www.journalism.org/2015/07/14/the-evolving-role-of-news-on-twitter-and-facebook/">Pew Research Center</a>, Journalism &amp; Media. “The Evolving Role of News on Twitter and Facebook”. July 14, 2015.</p>
 <p>Our project took inspiration from the following former STATS 531 projects: <a href="https://ionides.github.io/531w20/final_project/Project32/final.html">W20 Project 32</a> for the SIR model with delay, and <br> <a href="https://ionides.github.io/531w18/final_project/13/final.html">W18 Project 13</a> and <a href="https://ionides.github.io/531w20/final_project/Project34/final.html">W20 Project 34</a> for the idea of applying epidemiological models to information spread.</p>
 <p><em>All uncited statistical methods were obtained by consulting the <a href="https://ionides.github.io/531w21/">STATS 531</a> class notes.</em></p>
 <hr />
-<p><span style="color:red">TODO: this section!</span> We collaborated on all sections of the project, but the primary assignees by section are as follows:</p>
+<p>We collaborated on all sections of the project, but the primary assignees by section are as follows:</p>
 <p><strong>Eric</strong>:</p>
 <p><strong>Bella</strong>:</p>
 <p>We usually worked independently, but also met up both during class and outside of class to discuss our reasoning, share ideas / feedback, and debug code.</p>
