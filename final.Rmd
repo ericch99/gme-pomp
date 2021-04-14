@@ -213,12 +213,12 @@ guides(color=FALSE)
 
 The model parameters we have to estimate are:
 
-- $\beta_1$, representing the information transmission rate through social media
-- $\beta_2$, representing the information transmission rate through "traditional" news sources
-- $\mu_{S_1S_2}$, representing a latent delay in the susceptible population
-- $\mu_{IR}$, representing the recovery rate ("hype factor")
-- $\mu_{RS_1}$, representing the resurgence rate
-- $\eta$, the initial susceptible fraction 
+- $\beta_1$ — representing the information transmission rate through social media
+- $\beta_2$ — representing the information transmission rate through "traditional" news sources
+- $\mu_{S_1S_2}$ — representing a latent delay in the susceptible population
+- $\mu_{IR}$ — representing the recovery rate ("hype factor")
+- $\mu_{RS_1}$ — representing the resurgence rate
+- $\eta$ — the initial susceptible fraction 
 
 Since the search frequency data are normalized to have maximum $100$, it is difficult to determine the reporting rate and population size. Based on our simulations above, we will fix the reporting rate $\rho = 0.8$, since it is plausible that, on average, 80% of individuals interested in the short squeeze ended up searching about it online. We will also take the population size $N = 2000$, as in the simulations.
 

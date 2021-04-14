@@ -513,12 +513,12 @@ R(t) &amp;= R(0) + N_{IR}(t) - N_{RS_1}(t) \\
 <h1>4. Model Selection</h1>
 <p>The model parameters we have to estimate are:</p>
 <ul>
-<li><span class="math inline">\(\beta_1\)</span>, representing the information transmission rate through social media</li>
-<li><span class="math inline">\(\beta_2\)</span>, representing the information transmission rate through “traditional” news sources</li>
-<li><span class="math inline">\(\mu_{S_1S_2}\)</span>, representing a latent delay in the susceptible population</li>
-<li><span class="math inline">\(\mu_{IR}\)</span>, representing the recovery rate (“hype factor”)</li>
-<li><span class="math inline">\(\mu_{RS_1}\)</span>, representing the resurgence rate</li>
-<li><span class="math inline">\(\eta\)</span>, the initial susceptible fraction</li>
+<li><span class="math inline">\(\beta_1\)</span> — representing the information transmission rate through social media</li>
+<li><span class="math inline">\(\beta_2\)</span> — representing the information transmission rate through “traditional” news sources</li>
+<li><span class="math inline">\(\mu_{S_1S_2}\)</span> — representing a latent delay in the susceptible population</li>
+<li><span class="math inline">\(\mu_{IR}\)</span> — representing the recovery rate (“hype factor”)</li>
+<li><span class="math inline">\(\mu_{RS_1}\)</span> — representing the resurgence rate</li>
+<li><span class="math inline">\(\eta\)</span> — the initial susceptible fraction</li>
 </ul>
 <p>Since the search frequency data are normalized to have maximum <span class="math inline">\(100\)</span>, it is difficult to determine the reporting rate and population size. Based on our simulations above, we will fix the reporting rate <span class="math inline">\(\rho = 0.8\)</span>, since it is plausible that, on average, 80% of individuals interested in the short squeeze ended up searching about it online. We will also take the population size <span class="math inline">\(N = 2000\)</span>, as in the simulations.</p>
 <p>We define an optimal set of parameters as one that maximizes the likelihood of the model. To do this, we use iterated filtering to simulate and evaluate the likelihood of many randomly-chosen candidate parameter sets.</p>
