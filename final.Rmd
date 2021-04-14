@@ -256,7 +256,7 @@ sir_step <- Csnippet("double dN_S1S2 = rbinom(S1,1-exp(-mu_S1S2*dt));
 sir_init <- Csnippet("S1 = nearbyint(eta*N);
                       S2 = 0;
                       I = 1;
-                      R = fmax(N-(S1+S2+I),0); 
+                      R = nearbyint((1-eta)*N-1); 
                       H = 0;")
 
 dgme <- Csnippet("lik = dbinom(count,H,rho,give_log);")
@@ -267,7 +267,7 @@ gme <- as.data.frame(cbind(day = 1:nrow(gme), count=gme$count))
 
 gme %>% 
   pomp(times="day",t0=0,
-       rprocess=euler(sir_step,delta.t=1),
+       rprocess=euler(sir_step,delta.t=1/2),
        rinit=sir_init,
        rmeasure=rgme,
        dmeasure=dgme,
@@ -281,8 +281,9 @@ We simulate 50 trajectories from some manually chosen parameters in order to che
 
 ```{r simulate, echo=FALSE}
 SSIR %>%
-  simulate(params=c(Beta1=1,Beta2=1,mu_S1S2=0.5,mu_IR=0.5,mu_RS1=0.02,rho=0.8,eta=0.8,N=2000),
-nsim=50,format="data.frame",include.data=TRUE) -> sims
+  simulate(params=c(Beta1=0.03,Beta2=1.5,mu_S1S2=0.8,mu_IR=0.9,mu_RS1=0.03,
+                    rho=0.8,eta=0.7,N=1500),
+           nsim=50,format="data.frame",include.data=TRUE) -> sims
 
 sims %>% ggplot(aes(x=day,y=count,group=.id,color=.id=="data"))+ geom_line()+
 guides(color=FALSE)
@@ -318,13 +319,10 @@ Nsim <- switch(run_level, 50, 100, 500)
 ```
 
 ```{r}
-params=c(Beta1=1,Beta2=1,mu_S1S2=0.5,mu_IR=0.5,mu_RS1=0.02,rho=0.8,eta=0.8,N=2000)
 params=c(Beta1=0.03,Beta2=1.5,mu_S1S2=0.9,mu_IR=0.8,mu_RS1=0.03,rho=0.8,eta=0.7,N=1500)
-SSIR %>% pfilter(Np=500, params=params) -> pf
+SSIR %>% pfilter(Np=2000, params=params) -> pf
 
-plot(pf) 
-
-fixed_params <- c(N=2000, rho=0.8)
+#fixed_params <- c(N=2000, rho=0.8)
 logLik(pf)
 ```
 
@@ -336,10 +334,10 @@ library(doRNG)
 registerDoRNG(3899882)
 
 
-stew(file="results/pf1.rda",{
+stew(file="pf1.rda",{
   t1 <- system.time(
     pf1 <- foreach(i=1:20,.packages='pomp') %dopar% 
-      pfilter(SSIR,Np=gme_Np,params=params)
+      pfilter(SSIR,Np=1000,params=params)
 ) })
 L1 <- logmeanexp(sapply(pf1,logLik),se=TRUE)
 L1
@@ -358,7 +356,7 @@ foreach(guess=iter(guesses,"row"), .combine=rbind) %dopar% {
   replicate(10, mf %>% pfilter(Np=20) %>% logLik()) %>% logmeanexp(se=TRUE) -> ll
   mf %>% coef() %>% bind_rows() %>% bind_cols(loglik=ll[1],loglik.se=ll[2]) 
   } -> results
-
+```
 
 ```{r grid, echo=FALSE}
 # runif_design(
