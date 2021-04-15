@@ -1,8 +1,8 @@
 /* pomp C snippet file: SSIR */
-/* Time: 2021-04-14 23:45:39.139 -0400 */
+/* Time: 2021-04-14 22:57:43.094 -0500 */
 /* Salt: D30BE1DD3CB1B38C56FEA108 */
 
-#include <C:/Users/HP/Documents/R/win-library/4.0/pomp/include/pomp.h>
+#include <pomp.h>
 #include <R_ext/Rdynload.h>
 
  
