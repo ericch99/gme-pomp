@@ -1,8 +1,8 @@
 /* pomp C snippet file: SSIR */
-/* Time: 2021-04-14 22:57:43.094 -0500 */
+/* Time: 2021-04-15 15:28:57.116 -0400 */
 /* Salt: D30BE1DD3CB1B38C56FEA108 */
 
-#include <pomp.h>
+#include <C:/Users/HP/Documents/R/win-library/4.0/pomp/include/pomp.h>
 #include <R_ext/Rdynload.h>
 
  
@@ -72,7 +72,7 @@ void __pomp_stepfn (double *__x, const double *__p, const int *__stateindex, con
                       S2 += dN_S1S2 - dN_S2I;
                       I += dN_S1I + dN_S2I - dN_IR;
                       R += dN_IR - dN_RS1;
-                      H += dN_IR; 
+                      H += dN_S1I + dN_S2I; 
 }
 
 #undef Beta1
@@ -184,7 +184,8 @@ void __pomp_dmeasure (double *__lik, const double *__y, const double *__x, const
 
 void __pomp_to_trans (double *__pt, const double *__p, const int *__parindex)
 {
- 	T_Beta1 = log(Beta1);
+ 	T_N = log(N);
+	T_Beta1 = log(Beta1);
 	T_Beta2 = log(Beta2);
 	T_mu_S1S2 = log(mu_S1S2);
 	T_mu_IR = log(mu_IR);
@@ -230,7 +231,8 @@ void __pomp_to_trans (double *__pt, const double *__p, const int *__parindex)
 
 void __pomp_from_trans (double *__p, const double *__pt, const int *__parindex)
 {
- 	Beta1 = exp(T_Beta1);
+ 	N = exp(T_N);
+	Beta1 = exp(T_Beta1);
 	Beta2 = exp(T_Beta2);
 	mu_S1S2 = exp(T_mu_S1S2);
 	mu_IR = exp(T_mu_IR);

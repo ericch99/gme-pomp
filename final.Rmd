@@ -176,7 +176,7 @@ sir_step <- Csnippet("double dN_S1S2 = rbinom(S1, 1-exp(-mu_S1S2*dt));
                       S2 += dN_S1S2 - dN_S2I;
                       I += dN_S1I + dN_S2I - dN_IR;
                       R += dN_IR - dN_RS1;
-                      H += dN_IR;")
+                      H += dN_S1I + dN_S2I;")
   
 sir_init <- Csnippet("S1 = nearbyint(eta*N);
                       S2 = 0;
@@ -198,7 +198,7 @@ gme %>%
        rmeasure=rgme,
        dmeasure=dgme,
        accumvars="H", 
-       partrans=parameter_trans(log=c("Beta1", "Beta2", "mu_S1S2", "mu_IR", "mu_RS1"),logit=c("rho","eta")),
+       partrans=parameter_trans(log=c("N", "Beta1", "Beta2", "mu_S1S2", "mu_IR", "mu_RS1"),logit=c("rho", "eta")),
        statenames=c("S1","S2","I","R","H"),
        paramnames=c("Beta1", "Beta2", "mu_S1S2", "mu_IR", "mu_RS1", "eta", "rho","N"),
        cdir=".", cfile="SSIR") -> SSIR
@@ -207,7 +207,7 @@ gme %>%
 We simulate 50 trajectories from some manually chosen parameters in order to check the validity of our model. Noticeably, many of the trajectories seem to peak early, then level off around some smaller, nonzero value, much like the real data. Thus, we conclude that our model is reasonable, and continue on to conduct a parameter search.
 
 ```{r simulate, echo=FALSE}
-params <- c(Beta1=1,Beta2=1,mu_S1S2=0.5,mu_IR=0.5,mu_RS1=0.02,rho=0.1,eta=0.8,N=10000)
+params <- c(Beta1=1,Beta2=1,mu_S1S2=0.5,mu_IR=0.5,mu_RS1=0.02,rho=0.1,eta=0.8,N=20000)
 
 SSIR %>%
   simulate(params=params, nsim=50,format="data.frame",include.data=TRUE) -> sims
@@ -220,9 +220,7 @@ guides(color=FALSE)
 
 # 4. Model Selection
 
-### Variable Parameters.
-
-The model parameters we have to estimate are:
+The model parameters we are interested in estimating are:
 
 - $\beta_1$ — the information transmission rate through social media
 - $\beta_2$ — the information transmission rate through "traditional" news sources
@@ -231,11 +229,7 @@ The model parameters we have to estimate are:
 - $\mu_{RS_1}$ — the resurgence rate
 - $\eta$ — the initial susceptible fraction 
 
-### Fixed Parameters.
-
-Since the search frequency data are normalized to have maximum $100$, it is difficult to interpret the reporting rate and population size. However, Statista tells us that there were 267 million unique Google users from the US in 2020  [[9](https://www.statista.com/topics/1001/google/)]. Under some reasonable assumptions <sup style='color:gray'> [\*] </sup>, this leads to an estimated reporting rate of $\rho = 0.8$, which we will fix for simplicity. We will still let the population size $N$ vary so as to not overconstrain the model, but we can essentially ignore the resulting estimate.
-
-<sup style='color:gray'>The assumptions are: 1) every unique user searched about the GME short squeeze and 2) all 328 million US residents have heard of the event at some point (aka, was once "infected").</sup>
+Since the search frequency data are normalized to have maximum $100$, it will be difficult to interpret the reporting rate $\rho$ and population size $N$. We will still let these parameters vary so as to not overconstrain the model, but will ignore their interpretation in this project.
 
 ### Global Search.
 
@@ -247,60 +241,82 @@ We define an optimal set of parameters as one that maximizes the likelihood of t
 run_level <- 1
 Np <- switch(run_level, 100, 1e3, 5e3)
 Nmif <- switch(run_level, 10, 100, 200)
+Nseq <- switch(run_level, 50, 500, 5000)
 Nreps_eval <- switch(run_level, 2, 10, 20)
 Nreps_global <- switch(run_level, 10, 20, 100)
 Nsim <- switch(run_level, 50, 100, 500)
 ```
 
-```{r}
-SSIR %>% pfilter(Np=2000, params=params) -> pf
-paste0('log-likelihood: ', logLik(pf))
-```
 
-
-```{r, echo=FALSE, cache=TRUE}
-library(doParallel)
-registerDoParallel()
-library(doRNG)
-registerDoRNG(3899882)
-
+```{r benchmark, echo=FALSE, cache=TRUE}
 stew(file="pf1.rda",{
   t1 <- system.time(
-    pf1 <- foreach(i=1:20,.packages='pomp') %dopar% 
-      pfilter(SSIR,Np,params=params)
+    pf1 <- foreach(i=1:20,.export=c("SSIR", "params"),.packages='pomp') %dopar% 
+      pfilter(SSIR,Np=5000,params=params)
 ) })
 L1 <- logmeanexp(sapply(pf1,logLik),se=TRUE)
-L1
+paste0('log-likelihood: ', L1[1])
+paste0('standard error: ', L1[2])
+```
+<!-- ACTUAL GLOBAL SEARCH -->
+
+```{r grid, cache=TRUE, echo=FALSE}
+runif_design(lower=c(Beta1=0.1,Beta2=0.1,mu_S1S2=0.1,mu_IR=0.1,mu_RS1=0.01,eta=0.1,rho=0.05), 
+             upper=c(Beta1=5,Beta2=5,mu_S1S2=5,mu_IR=5,mu_RS1=0.1,eta=1,rho=0.3),
+             nseq=Nseq) -> guesses
+
+guesses$N = runif(length(guesses$rho), 100000, 200000) * guesses$rho
 ```
 
-```{r, cache=TRUE}
-set.seed(2062379496)
-params <- c(Beta1=1,Beta2=1,mu_S1S2=0.5,mu_IR=0.5,mu_RS1=0.02,rho=0.1,eta=0.8,N=20000)
-
-runif_design( lower=c(Beta1=0.5,Beta2=0.5,mu_S1S2=0.5,mu_IR=0.2,mu_RS1=0.01,rho=0.05,eta=0.8,N=10000), 
-              upper=c(Beta1=1.5,Beta2=1.5,mu_S1S2=0.5,mu_IR=0.7,mu_RS1=0.04,rho=0.3,eta=0.8,N=30000),
-              nseq=300) -> guesses
-
-#mf1 <- mifs_local[[1]]
-
-registerDoRNG(1270401374)
-foreach(guess=iter(guesses,"row"), .combine=rbind) %dopar% {
-  mf1 %>% mif2(params=c(unlist(guess),fixed_params)) %>% mif2(Nmif=100) -> mf 
-  replicate(10, mf %>% pfilter(Np=20) %>% logLik()) %>% logmeanexp(se=TRUE) -> ll
+```{r global_search, echo=FALSE}
+foreach(guess=iter(guesses,"row"), .export=c("Np", "Nmif"), .combine=rbind) %dopar% {
+  library(pomp)
+  library(tidyverse)
+  
+  
+  SSIR %>% mif2(params=c(unlist(guess)),
+                Np=Np, Nmif,
+                cooling.fraction.50=0.5,
+                rw.sd=rw.sd(Beta1=0.02,Beta2=0.02,mu_S1S2=0.02, mu_IR=0.02, mu_RS1=0.02, eta=ivp(0.02))) %>% mif2(Nmif) -> mf 
+  replicate(10, mf %>% pfilter(Np) %>% logLik()) %>% logmeanexp(se=TRUE) -> ll
   mf %>% coef() %>% bind_rows() %>% bind_cols(loglik=ll[1],loglik.se=ll[2]) 
 } -> results
+```
+
+```{r plot_results, echo=FALSE, fig.width=8, fig.height=8}
+results %>%
+write_csv("gme_params.csv")
+
+read_csv("gme_params.csv") %>%
+filter(is.finite(loglik)) %>%
+filter(loglik>max(loglik)-50) %>%
+bind_rows(guesses) %>%
+mutate(type=if_else(is.na(loglik),"guess","result")) %>%
+arrange(type) -> all
+pairs(~loglik+Beta1+Beta2+mu_S1S2+mu_IR+mu_RS1+eta, data=all,
+col=ifelse(all$type=="guess",grey(0.5),"red"),lower.panel=NULL,pch=16)
 
 ```
 
-```{r grid, echo=FALSE}
-# runif_design(
-#   lower=c(Beta1=5, Beta2, rho=1,eta=0),
-#   upper=c(Beta=80,rho=1,eta=0.4),
-#   nseq=300
-# ) -> guesses
-# mf1 <- mifs_local[[1]]
-```
 
+Finally, we obtain our best parameter set:
+
+```{r best, echo=FALSE}
+read_csv("gme_params.csv") %>%
+filter(is.finite(loglik)) -> final_results
+
+final_results[final_results$loglik == max(final_results$loglik),] %>%
+  select(-one_of(c('rho','N', 'loglik', 'loglik.se'))) %>%
+  as.matrix %>%
+  as.table() %>%
+  print()
+
+final_results[final_results$loglik == max(final_results$loglik),] %>%
+  select(one_of(c('loglik', 'loglik.se'))) %>%
+  as.matrix %>%
+  as.table() %>%
+  print()
+```
 
 -----------
 
@@ -436,6 +452,8 @@ gme_paramnames <- c(gme_rp_names,gme_ivp_names, gme_fp_names)
 - make resurgence rate constant $\mu_{RS_1}$ time-varying
 - make reporting rate $\rho$ time-varying
 - reverse causation - although somewhat beyond the scope of this project, the greater question is: can social trends have an impact of stock prices, or do the stock prices determine such trends in the first place (...or both)? 
+
+- computing: likelihoods were often infinite and diverged, suggesting that the model is misspecified
 
 ------------
 
