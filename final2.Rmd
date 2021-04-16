@@ -116,50 +116,36 @@ Combined with the evidence from the periodogram, the erratic, quasi-regular tren
 
 ## 3.1. Model Structure
 
-Given our analyses above, we find it appropriate to model our data with a compartmental model, commonly used in epidemiological studies -- specifically, we use a **SIRS model with delay**.
+Given our analyses above, we find it appropriate to model our data with a compartmental model, commonly used in epidemiological studies -- specifically, we use a **SIRS model**.
 
 We define *susceptible* in this context to mean individuals who have not yet heard about the short squeeze, *infected* to mean individuals who have heard about the short squeeze and are actively interested in it, and *recovered* to refer to individuals who have lost interest in the short squeeze and have no further inclination to search about it. In analogy with the original SIR model, the *reporting rate* would be the proportion of interested individuals who end up actually searching about the event online.
 
-We include two latent susceptible states $S_1$ and $S_2$. Intuitively, these two states are meant to differentiate between individuals who obtain their news from social media and individuals who may follow more traditional news sources. Since information spreads faster through social media than through sources such as news networks and newspapers [[7](https://larswillnat.files.wordpress.com/2014/05/2013-american-journalist-key-findings.pdf), [8](https://www.journalism.org/2015/07/14/the-evolving-role-of-news-on-twitter-and-facebook/)], we have included a potential delay to represent individuals who are "late" in hearing about the short squeeze. Individuals progress from $S_1$ to either $S_2$ or the infected state $I$, and from $S_2$ to $I$ only.
-
-Finally, consider that the popularity of a trend can *resurge* long after the initial event; indeed, this behavior seems to be evident in the data. Because of this, we suppose that recovered individuals (represented by the state $R$) move back into the initial susceptible state $S_1$ after some time. Our model is summarized in the diagram below.
-
-<div style='margin:40px'>
-<center>
-![Figure 1: Model Diagram](model.png)
-</center>
-</div>
-
+Consider that the popularity of a trend can *resurge* long after the initial event; indeed, this behavior seems to be evident in the data. Because of this, we suppose that recovered individuals (represented by the state $R$) move back into the initial susceptible state $S_1$ after some time. 
 
 ## 3.2. Mathematical Formulation
 
 The number of individuals in each compartment, at each time point $t$ are given by the following equations:
 
 \begin{align*}
-S_1(t) &= S_1(0) + N_{RS_1}(t) - N_{S_1S_2}(t) - N_{S_1I}(t) \\
-S_2(t) &= S_2(0) + N_{S_1S_2}(t) - N_{S_2I}(t) \\
-I(t) &= I(0) + N_{S_1I}(t) + N_{S_2I}(t) - N_{IR}(t) \\
-R(t) &= R(0) + N_{IR}(t) - N_{RS_1}(t) \\
+S(t) &= S(0) + N_{RS}(t) - N_{SI}(t) \\
+I(t) &= I(0) + N_{SI}(t) - N_{IR}(t) \\
+R(t) &= R(0) + N_{IR}(t) - N_{RS}(t) \\
 \end{align*}
 
 where $N_{XY}$ is a counting process that represents the number of individuals transitioning from state $X$ to state $Y$. The associated compartment transfer rates are given by:
 
 \begin{align*}
-\frac{dN_{S_1S_2}(t)}{dt} &= \mu_{S_1S_2}S_1(t) \\
-\frac{dN_{S_1I}(t)}{dt} &= \mu_{S_1I}(t)S_1(t) = \beta_1I(t)S_1(t) \\
-\frac{dN_{S_2I}(t)}{dt} &= \mu_{S_2I}(t)S_2(t) = \beta_2I(t)S_2(t)\\
+\frac{dN_{SI}(t)}{dt} &= \mu_{SI}(t)S(t) = \beta I(t)S(t) \\
 \frac{dN_{IR}(t)}{dt} &= \mu_{IR}I(t) \\
-\frac{dN_{RS_1}(t)}{dt} &= \mu_{RS_1}R(t) \\
+\frac{dN_{RS}(t)}{dt} &= \mu_{RS}R(t) \\
 \end{align*}
 
 We use Euler's method to compute approximations to the above rates. In particular, each transfer rate is discretely approximated by a binomial distribution with exponential transition probabilities:
 
 \begin{align*}
-\Delta N_{S_1S_2}(t) &\sim \mathrm{Bin}(S_1, 1 - e^{-\mu_{S_1S_2}\Delta t}) \\
-\Delta N_{S_1I}(t) &\sim \mathrm{Bin}(S_1, 1 - e^{-\beta_1\frac{I}{N}\Delta t}) \\
-\Delta N_{S_2I}(t) &\sim \mathrm{Bin}(S_2, 1 - e^{-\beta_2\frac{I}{N}\Delta t}) \\
+\Delta N_{SI}(t) &\sim \mathrm{Bin}(S, 1 - e^{-\beta\frac{I}{N}\Delta t}) \\
 \Delta N_{IR}(t) &\sim \mathrm{Bin}(I, 1 - e^{-\mu_{IR}\Delta t}) \\
-\Delta N_{RS_1}(t) &\sim \mathrm{Bin}(R, 1 - e^{-\mu_{RS_1}\Delta t}) \\
+\Delta N_{RS}(t) &\sim \mathrm{Bin}(R, 1 - e^{-\mu_{RS}\Delta t}) \\
 \end{align*}
 
 ------------
@@ -167,27 +153,22 @@ We use Euler's method to compute approximations to the above rates. In particula
 ## 3.3. Simulations
 
 ```{r model implement, echo=FALSE}
-sir_step <- Csnippet("double dN_S1S2 = rbinom(S1, 1-exp(-mu_S1S2*dt));
-                      double dN_S1I = rbinom(S1 - dN_S1S2, 1-exp(-Beta1*I/N*dt));
-                      double dN_S2I = rbinom(S2, 1-exp(-Beta2*I/N*dt));
+sir_step <- Csnippet("double dN_SI = rbinom(S, 1-exp(-Beta*I/N*dt));
                       double dN_IR = rbinom(I, 1-exp(-mu_IR*dt));
-                      double dN_RS1 = rbinom(R, 1-exp(-mu_RS1*dt));
-                      S1 += dN_RS1 - (dN_S1I + dN_S1S2);
-                      S2 += dN_S1S2 - dN_S2I;
-                      I += dN_S1I + dN_S2I - dN_IR;
-                      R += dN_IR - dN_RS1;
-                      H += dN_S1I + dN_S2I;")
+                      double dN_RS = rbinom(R, 1-exp(-mu_RS*dt));
+                      S += dN_RS - dN_SI;
+                      I += dN_SI - dN_IR;
+                      R += dN_IR - dN_RS;
+                      H += dN_SI;")
   
-sir_init <- Csnippet("S1 = nearbyint(eta*N);
-                      S2 = 0;
+sir_init <- Csnippet("S = nearbyint(eta*N);
                       I = 1;
                       R = 0; 
                       H = 0;")
 
-dgme <- Csnippet("lik = dbinom(count,H,rho,give_log);
-                 ")
+dgme <- Csnippet("lik = dnbinom(count,H,rho,give_log);")
 
-rgme <- Csnippet("count = rbinom(H,rho);")
+rgme <- Csnippet("count = rnbinom(H,rho);")
 
 gme <- as.data.frame(cbind(day = 1:nrow(gme), count=gme$count))
 
@@ -198,16 +179,17 @@ gme %>%
        rmeasure=rgme,
        dmeasure=dgme,
        accumvars="H", 
-       partrans=parameter_trans(log=c("N", "Beta1", "Beta2", "mu_S1S2", "mu_IR", "mu_RS1"),logit=c("rho", "eta")),
-       statenames=c("S1","S2","I","R","H"),
-       paramnames=c("Beta1", "Beta2", "mu_S1S2", "mu_IR", "mu_RS1", "eta", "rho","N"),
+       partrans=parameter_trans(log=c("N", "Beta", "mu_IR", "mu_RS"), 
+                                logit=c("rho", "eta")),
+       statenames=c("S","I","R","H"),
+       paramnames=c("Beta", "mu_IR", "mu_RS", "eta", "rho", "N"),
        cdir=".", cfile="SSIR") -> SSIR
 ```
 
 We simulate 50 trajectories from some manually chosen parameters in order to check the validity of our model. Noticeably, many of the trajectories seem to peak early, then level off around some smaller, nonzero value, much like the real data. Thus, we conclude that our model is reasonable, and continue on to conduct a parameter search.
 
 ```{r simulate, echo=FALSE}
-params <- c(Beta1=1,Beta2=1,mu_S1S2=0.5,mu_IR=0.5,mu_RS1=0.02,rho=0.1,eta=0.8,N=20000)
+params <- c(Beta=0.9,mu_IR=0.5,mu_RS=0.03,rho=0.8,eta=0.8,N=4000)
 
 SSIR %>%
   simulate(params=params, nsim=50,format="data.frame",include.data=TRUE) -> sims
@@ -220,20 +202,34 @@ guides(color=FALSE)
 
 # 4. Model Selection
 
+### Variable Parameters
+
 The model parameters we are interested in estimating are:
 
-- $\beta_1$ — the information transmission rate through social media
-- $\beta_2$ — the information transmission rate through "traditional" news sources
-- $\mu_{S_1S_2}$ — representing a latent delay in the susceptible population
+- $\beta$ — the information transmission rate 
 - $\mu_{IR}$ — the recovery rate ("hype factor")
-- $\mu_{RS_1}$ — the resurgence rate
+- $\mu_{RS}$ — the resurgence rate
 - $\eta$ — the initial susceptible fraction 
 
-Since the search frequency data are normalized to have maximum $100$, it will be difficult to interpret the reporting rate $\rho$ and population size $N$. We will still let these parameters vary so as to not overconstrain the model, but will ignore their interpretation in this project.
+### Fixed Parameters
+
+Since the search frequency data are normalized to have maximum $100$, it is difficult to interpret the reporting rate $\rho$ and population size $N$. However, Statista tells us that there were 267 million unique Google users from the US in 2020  [[9](https://www.statista.com/topics/1001/google/)]. Under some reasonable assumptions <sup style='color:gray'> [\*] </sup>, this leads to an estimated reporting rate of $\rho = 0.8$, which we will fix for simplicity. We will also fix the population size $N=3000$ to match the simulations above.
+
+<sup style='color:gray'>The assumptions are: 1) every unique user searched about the GME short squeeze and 2) all 328 million US residents have heard of the event at some point (aka, was once "infected").</sup>
 
 ### Global Search.
 
 We define an optimal set of parameters as one that maximizes the likelihood of the model. To do this, we use iterated filtering -- the IF2 algorithm -- to simulate and evaluate the likelihood of many randomly-chosen candidate parameter sets. As a benchmark, we compute the likelihood of the parameter set used in the simulation in the previous section:
+
+```{r benchmark, echo=FALSE, cache=TRUE}
+stew(file="benchmark.rda",{
+  t1 <- system.time(
+    pf1 <- foreach(i=1:20,.export=c("SSIR", "params"),.packages='pomp') %dopar% 
+      pfilter(SSIR,Np=5000,params=params)
+) })
+L1 <- logmeanexp(sapply(pf1,logLik),se=TRUE)
+paste0('log-likelihood: ', L1[1])
+```
 
 ```{r iterations, echo=FALSE}
 # helps us debug -- we want to use 3 when actually running
@@ -247,25 +243,14 @@ Nreps_global <- switch(run_level, 10, 20, 100)
 Nsim <- switch(run_level, 50, 100, 500)
 ```
 
-
-```{r benchmark, echo=FALSE, cache=TRUE}
-stew(file="pf1.rda",{
-  t1 <- system.time(
-    pf1 <- foreach(i=1:20,.export=c("SSIR", "params"),.packages='pomp') %dopar% 
-      pfilter(SSIR,Np=5000,params=params)
-) })
-L1 <- logmeanexp(sapply(pf1,logLik),se=TRUE)
-paste0('log-likelihood: ', L1[1])
-paste0('standard error: ', L1[2])
-```
 <!-- ACTUAL GLOBAL SEARCH -->
 
 ```{r grid, cache=TRUE, echo=FALSE}
-runif_design(lower=c(Beta1=0.1,Beta2=0.1,mu_S1S2=0.1,mu_IR=0.1,mu_RS1=0.01,eta=0.1,rho=0.05), 
-             upper=c(Beta1=5,Beta2=5,mu_S1S2=5,mu_IR=5,mu_RS1=0.1,eta=1,rho=0.3),
+runif_design(lower=c(Beta=0.1,mu_IR=0.1,mu_RS=0.01,eta=0.1,rho=0.8, N=4000), 
+             upper=c(Beta=2,mu_IR=1,mu_RS=0.1,eta=1,rho=0.8, N=4000),
              nseq=Nseq) -> guesses
 
-guesses$N = runif(length(guesses$rho), 100000, 200000) * guesses$rho
+# guesses$N = runif(length(guesses$rho), 10000, 20000) * guesses$rho
 ```
 
 ```{r global_search, echo=FALSE}
@@ -277,10 +262,14 @@ foreach(guess=iter(guesses,"row"), .export=c("Np", "Nmif"), .combine=rbind) %dop
   SSIR %>% mif2(params=c(unlist(guess)),
                 Np=Np, Nmif,
                 cooling.fraction.50=0.5,
-                rw.sd=rw.sd(Beta1=0.02,Beta2=0.02,mu_S1S2=0.02, mu_IR=0.02, mu_RS1=0.02, eta=ivp(0.02))) %>% mif2(Nmif) -> mf 
+                rw.sd=rw.sd(Beta=0.02, mu_IR=0.02, mu_RS=0.02, eta=ivp(0.02))) %>% mif2(Nmif) -> mf 
   replicate(10, mf %>% pfilter(Np) %>% logLik()) %>% logmeanexp(se=TRUE) -> ll
   mf %>% coef() %>% bind_rows() %>% bind_cols(loglik=ll[1],loglik.se=ll[2]) 
 } -> results
+```
+
+```{r}
+results
 ```
 
 ```{r plot_results, echo=FALSE, fig.width=8, fig.height=8}
@@ -293,7 +282,7 @@ filter(loglik>max(loglik)-50) %>%
 bind_rows(guesses) %>%
 mutate(type=if_else(is.na(loglik),"guess","result")) %>%
 arrange(type) -> all
-pairs(~loglik+Beta1+Beta2+mu_S1S2+mu_IR+mu_RS1+eta, data=all,
+pairs(~loglik+Beta+mu_IR+mu_RS+eta, data=all,
 col=ifelse(all$type=="guess",grey(0.5),"red"),lower.panel=NULL,pch=16)
 
 ```
