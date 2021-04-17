@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=final_level_1
+#SBATCH --job-name=final_level_2
 #SBATCH --mail-user=ericch@umich.edu
 #SBATCH --mail-type=BEGIN,END,FAIL
  
@@ -23,6 +23,4 @@ module list
 echo "Running on $SLURM_JOB_NODELIST"
 echo "Running in $(pwd)"
 
-Rscript --vanilla -e "knitr::knit2html(\"final.Rmd\")"
-
-
+Rscript --vanilla -e "rmarkdown::render(\"final.Rmd\", \"html_document\")"

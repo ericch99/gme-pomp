@@ -1,8 +1,8 @@
 /* pomp C snippet file: SSIR */
-/* Time: 2021-04-15 22:17:34.884 -0400 */
-/* Salt: 20A08AC90B967E15B7003616 */
+/* Time: 2021-04-17 12:31:48.140 -0400 */
+/* Salt: F5C3D9D05BFD17AABD39D608 */
 
-#include <C:/Users/HP/Documents/R/win-library/4.0/pomp/include/pomp.h>
+#include <pomp.h>
 #include <R_ext/Rdynload.h>
 
  
@@ -23,9 +23,9 @@
 void __pomp_rinit (double *__x, const double *__p, double t, const int *__stateindex, const int *__parindex, const int *__covindex, const double *__covars)
 {
  S = nearbyint(eta*N);
-                      I = 1;
+                      I = 5;
                       R = 0; 
-                      H = 0; 
+                      H = 5; 
 }
 
 #undef Beta
