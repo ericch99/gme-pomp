@@ -87,13 +87,15 @@ Combined with the evidence from the periodogram, the erratic, quasi-regular tren
 
 ## 3.1. Model Structure
 
-Given our analyses above, we find it appropriate to model our data with a compartmental model, commonly used in epidemiological studies -- specifically, we use a **SIRS model**.
+Given our analyses above, we find it appropriate to model our data with a compartmental model, commonly used in epidemiological studies -- specifically, we use a **SIRS model** to represent the latent process.
 
-We define *susceptible* in this context to mean individuals who have not yet heard about the short squeeze, *infected* to mean individuals who have heard about the short squeeze and are actively interested in it, and *recovered* to refer to individuals who have lost interest in the short squeeze and have no further inclination to search about it. In analogy with the original SIR model, the *reporting rate* would be the proportion of interested individuals who end up actually searching about the event online.
+We define *susceptible* in this context to mean individuals who have not yet heard about the short squeeze, *infected* to mean individuals who have heard about the short squeeze and are actively interested in it, and *recovered* to refer to individuals who have lost interest in the short squeeze and have no further inclination to search about it. In analogy with the original SIR model, the *reporting rate* would be the proportion of interested individuals who end up actually searching about the event online. 
 
 Consider that the popularity of a trend can *resurge* long after the initial event; indeed, this behavior seems to be evident in the data. Because of this, we suppose that recovered individuals -- represented by the state $R$ -- move back into the initial susceptible state $S$ after some time. 
 
 ## 3.2. Mathematical Formulation
+
+### Process Model.
 
 The number of individuals in each compartment, at each time point $t$ are given by the following equations:
 
@@ -118,6 +120,14 @@ We use Euler's method to compute approximations to the above rates. In particula
 \Delta N_{IR}(t) &\sim \mathrm{Bin}(I, 1 - e^{-\mu_{IR}\Delta t}) \\
 \Delta N_{RS}(t) &\sim \mathrm{Bin}(R, 1 - e^{-\mu_{RS}\Delta t}) \\
 \end{align*}
+
+### Measurement Model.
+
+We suppose that the number of searches $Q$ is drawn from a negative binomial distribution with parameters $H$, $\rho$, where $H$ is the underlying number of new infections per time step and $\rho$ is the reporting rate. Mathematically:
+
+$$
+Q \sim \mathrm{NegBin}(H, \rho)
+$$
 
 ------------
 
@@ -157,7 +167,7 @@ gme %>%
        cdir=".", cfile="SSIR") -> SSIR
 ```
 
-We simulate 20 trajectories from some manually chosen parameters in order to check the validity of our model. Noticeably, many of the trajectories seem to peak early, then level off around some smaller, nonzero value, much like the real data. Thus, we conclude that our model is reasonable, and continue on to conduct a parameter search.
+We simulate 20 trajectories from some manually chosen parameters in order to check the validity of our model. 
 
 ```{r simulate, echo=FALSE}
 params <- c(Beta=1.3,mu_IR=0.5,mu_RS=0.03,rho=0.4,eta=0.5,N=3000)
@@ -168,6 +178,8 @@ SSIR %>%
 sims %>% ggplot(aes(x=day,y=count,group=.id,color=.id=="data"))+ geom_line()+
 guides(color=FALSE)
 ```
+
+There is great variability in the simulations, but many of the trajectories seem to peak early, then level off around some smaller, nonzero value, much like the real data. Thus, we conclude that our model is at least reasonable, and continue on to conduct a parameter search.
 
 -----------
 
@@ -252,6 +264,8 @@ pairs(~loglik+Beta+mu_IR+mu_RS+eta, data=all,
       col=ifelse(all$type=="guess",grey(0.5),"red"),lower.panel=NULL,pch=16)
 ```
 
+[include some kind of discussion of the likelihood surface -- what can we conclude?]
+
 Finally, we obtain our best parameter set:
 
 ```{r best, echo=FALSE}
@@ -272,7 +286,6 @@ final_results[final_results$loglik == max(final_results$loglik),][, 7:8] %>%
 -----------
 
 # 5. Model Diagnostics
-
 
 
 ```{r}
@@ -349,17 +362,17 @@ all %>% filter(is.finite(loglik)) %>%
 
 ------------
 
-# 8. Limitations 
+# 7. Limitations 
 
-- make resurgence rate constant $\mu_{RS_1}$ time-varying
-- make reporting rate $\rho$ time-varying
-- reverse causation - although somewhat beyond the scope of this project, the greater question is: can social trends have an impact of stock prices, or do the stock prices determine such trends in the first place (...or both)? 
-
-- computing: likelihoods were often infinite and diverged, suggesting that the model is misspecified
+Our model was somewhat simplistic -- more sophisticated models could include additional susceptible states to differentiate between the speed of information spread in different media (i.e., social media vs. newspapers) [[7](https://larswillnat.files.wordpress.com/2014/05/2013-american-journalist-key-findings.pdf), [8](https://www.journalism.org/2015/07/14/the-evolving-role-of-news-on-twitter-and-facebook/)]. Another addition could be to model the resurgence rate $\mu_{RS}$ and reporting rate $\rho$ as time-varying.
+  
+If we had more time, we would have included the value of $GME as a covariate. From there, we would have conducted a likelihood ratio test using Wilks' approximation to judge whether the model with or without the stock price was a better predictor of the data. This has many interesting implications; for example, we may be able to tell whether the stock price can be viewed as an external driver for the GameStop hype, or whether such search trends are self-driven. (Extrapolating further, we could even determine whether reverse causation is at play, and if the information spread is itself a driver for the stock price!)
+  
+On a computational note, we ran into many problems with infinite likelihoods due to the incompatibility of a binomial measurement model; as a result, we had to compromise a little bit of interpretability by modeling the search frequency as a negative binomial distribution. Future work could definitely explore alternatives that are both interpretable and compatible with the latent process.
 
 ------------
 
-# 7. References  
+# 8. References  
 
 [1] [Wang, Lin & Wood, Brendan](https://www.sciencedirect.com/science/article/pii/S0307904X11002824), "An Epidemiological Approach to Model the Viral Propagation of Memes". <br> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; *Applied Mathematical Modelling*, Volume 35, Issue 11: 5442-5447. November 11, 2011.
 
@@ -372,6 +385,10 @@ all %>% filter(is.finite(loglik)) %>%
 [5] [Yahoo Finance](https://finance.yahoo.com/), Yahoo. Accessed April 9, 2021.
 
 [6] [Investopedia](https://www.investopedia.com/terms/w/weekendeffect.asp), "Weekend Effect". Accessed April 13, 2021.
+
+[7] [Indiana University](https://larswillnat.files.wordpress.com/2014/05/2013-american-journalist-key-findings.pdf), “The American Journalist in the Digital Age: Key Findings”. 2014.
+
+[8] [Pew Research Center](https://www.journalism.org/2015/07/14/the-evolving-role-of-news-on-twitter-and-facebook/), “The Evolving Role of News on Twitter and Facebook”. July 14, 2015.
 
 <div style='margin-top: 25px'>
 Our project took inspiration from the following former STATS 531 projects: [W20 Project 32](https://ionides.github.io/531w20/final_project/Project32/final.html) for the SIR model with delay, and <br> [W18 Project 13](https://ionides.github.io/531w18/final_project/13/final.html) and [W20 Project 34](https://ionides.github.io/531w20/final_project/Project34/final.html) for the idea of applying epidemiological models to information spread. All uncited statistical <br> methods, as well as the code used in this project, were adapted from the [STATS 531](https://ionides.github.io/531w21/) class notes.
