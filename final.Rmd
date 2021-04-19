@@ -42,17 +42,13 @@ Social scientists have long drawn comparisons between the spread of information 
 
 In this project, we apply epidemiological methods -- specifically, compartmental models -- to model information flow during the 2021 GameStop short squeeze, an event in which thousands of Reddit users coordinated to buy shares of the gaming company GameStop, having anticipated a short by major hedge funds. The resulting jump in stock price caused such hedge funds to incur significant losses, resulting in a flurry of attention on both social media sites and major news networks [[3](https://en.wikipedia.org/wiki/GameStop_short_squeeze)].
 
-We use search frequency of the term "gme", GameStop's ticker symbol, as a proxy for the spread of news. The data was downloaded from Google Trends [[4](https://trends.google.com/trends/)], consisting of normalized daily measurements over an 88-day period. We also include GameStop's stock price (\$GME) for the same time period, downloaded from Yahoo Finance [[5](https://finance.yahoo.com/)].
+We use search frequency of the term "gme", GameStop's ticker symbol, as a proxy for the spread of news. The data was downloaded from Google Trends [[4](https://trends.google.com/trends/)], consisting of normalized daily measurements over an 88-day period.
 
 The main objectives of this project are as follows: 
 
 1. Model the information spread of a current event using an interpretable model.
 
 2. Draw parallels between the spread of information and the spread of disease.
-
-Additionally, it may be interesting to investigate if the stock price can be viewed as an external driver for the GME hype. Thus, we seek to:
-
-3. Determine the relationship between GameStop's stock price and search frequency.
 
 ------------
 
@@ -71,7 +67,7 @@ gme %>% ggplot(aes(x=date,y=count)) + geom_line() + geom_point() + ggtitle('Sear
   
 First, we note that the search data are normalized to have a maximum value of $100$. Understandably, the search frequency of the term "gme" peaks in late January, during the initial short squeeze. Notably, the data strongly resemble the measles dataset studied in class, lending support to the idea that such trends can be modeled using methods from epidemiology.
 
-The initial peak is followed by multiple, smaller peaks in the following months. This latter half of the data seems to exhibit strong weekly seasonality, as shown in the plot of the smoothed periodogram below. However, this may be because many stock exchanges are closed on weekends, and not something directly attributable to the short squeeze itself  [[6](https://www.investopedia.com/terms/w/weekendeffect.asp)]. 
+The initial peak is followed by multiple, smaller peaks in the following months. This latter half of the data seems to exhibit strong weekly seasonality, as shown in the plot of the smoothed periodogram below. However, this may be because many stock exchanges are closed on weekends, and not something directly attributable to the short squeeze itself  [[5](https://www.investopedia.com/terms/w/weekendeffect.asp)]. 
 
 ```{r spectrum, echo=FALSE}
 smoothed <- spectrum(gme$count[45:88], spans=c(5,5,5), main="Periodogram (Smoothed) - Past 43 Days")
@@ -196,17 +192,20 @@ The model parameters we are interested in estimating are:
 
 ### Fixed Parameters
 
-Since the search frequency data are normalized to have maximum $100$, it is difficult to interpret the reporting rate $\rho$ and population size $N$. We will still vary these parameters so as to not overconstrain our model, but due to convergence concerns, we will limit the range of the reporting rate $\rho$ to be $[0.1, 0.3]$, and the range of the population size $N$ to be $[1000,10000]$.
+Since the search frequency data are normalized to have maximum $100$, it is difficult to interpret the reporting rate $\rho$ and population size $N$. We will still vary these parameters so as to not overconstrain our model, but due to convergence concerns, we will limit the range of the reporting rate $\rho$ to be $[0.1, 0.3]$, and the range of the population size $N$ to be $[1000, 10000]$.
 
 ### Global Search.
 
 We define an optimal set of parameters as one that maximizes the likelihood of the model. To do this, we use iterated filtering -- the IF2 algorithm -- to simulate and evaluate the likelihood of many randomly-chosen candidate parameter sets. As a benchmark, we compute the likelihood of the parameter set used in the simulation in the previous section:
 
-```{r benchmark, echo=FALSE, cache=TRUE}
-pf1 <- foreach(i=1:20,.export=c("SSIR", "params"),.packages='pomp') %dopar%
-  pfilter(SSIR,Np=5000,params=params)
+```{r benchmark, echo=FALSE, warning=FALSE, cache=TRUE}
+stew(file="benchmark.rda", {
+  pf1 <- foreach(i=1:20,.export=c("SSIR","params"),c.packages='pomp') %dopar%
+    pfilter(SSIR,Np=5000,params=params)
+})
 L1 <- logmeanexp(sapply(pf1,logLik),se=TRUE)
 paste0('log-likelihood: ', L1[1])
+
 ```
 
 ```{r iterations, echo=FALSE}
@@ -247,7 +246,6 @@ stew(file="results.rda", {
 })
 ```
 
-
 Let's plot a scatterplot matrix to see if we can garner any insight into our likelihood surface.
 
 ```{r plot_results, echo=FALSE, fig.width=8, fig.height=8}
@@ -264,24 +262,22 @@ pairs(~loglik+Beta+mu_IR+mu_RS+eta, data=all,
       col=ifelse(all$type=="guess",grey(0.5),"red"),lower.panel=NULL,pch=16)
 ```
 
-[include some kind of discussion of the likelihood surface -- what can we conclude?]
+From the parameter search, we can see that our model has converged on estimates of $\beta$ around $1$, although the likelihood profile is somewhat flat here. Our model also favors values of the recovery rate $\mu_{IR}$ around $0.5$. Fpr $\mu_{RS}$ and $\eta$, the parameter search did not seem to converge; the model does not seem to have an overall preference. However, there is a clear relationship between $\beta$ and $\eta$; it seems that higher values of $\beta$ are associated with lower values of $\eta$.
 
 Finally, we obtain our best parameter set:
 
 ```{r best, echo=FALSE}
 results[results$loglik < -293,] %>% filter(is.finite(loglik)) -> final_results
 
-final_results[final_results$loglik == max(final_results$loglik),][,1:6] %>%
-  as.matrix %>%
-  as.table() %>%
-  print()
-
-final_results[final_results$loglik == max(final_results$loglik),][, 7:8] %>%
-  as.matrix %>%
-  as.table() %>%
+final_results[final_results$loglik == max(final_results$loglik),] %>%
   print()
 ```
 
+-----------
+
+# 5. Model Diagnostics
+
+To check model fit, let's simulate some values from the model using the optimal parameters we just found. 
 
 ```{r simulation, echo=FALSE, warning=FALSE}
 params <- final_results[final_results$loglik == max(final_results$loglik),][,1:6]
@@ -292,25 +288,17 @@ SSIR %>%
 sims %>% ggplot(aes(x=day,y=count,group=.id,color=.id=="data"))+ geom_line()+
 guides(color=FALSE)
 ```
+The simulations are still quite inconclusive! In general, the only similarities between the simulations and the actual data are that they tend to peak early on and stay lower after day 50 or so. There is still considerable variability.
 
+Let's see if the associated profile confidence intervals give us any more information about parameter optimality.
 
------------
-
-# 5. Model Diagnostics
-
-
-To compute the profile likelihoods for parameters we want to investigate means determining, for each value of parameter set, the best likelihood that the model can achieve. We will first bound the uncertainty by putting a box around the highest-likelihood estimates we have found so far.  
-
-```{r}
+```{r box, echo=FALSE}
 results%>% 
   filter(is.finite(loglik)) %>%
   filter(loglik>max(loglik)-20,loglik.se<2) %>% sapply(range) -> box
-box
 ```
 
-
-
-```{r}
+```{r echo=FALSE}
 set.seed(1196696958) 
 profile_design(
   eta=seq(0.01,0.1,length=40), 
@@ -320,7 +308,7 @@ profile_design(
 ) -> guesses2
 ```
 
-```{r}
+```{r echo=FALSE}
 stew(file="results2.rda", {
   foreach(guess=iter(guesses,"row"), .export=c("Np", "SSIR", "Nmif"),.combine=rbind) %dopar% { 
     library(pomp)
@@ -335,19 +323,17 @@ stew(file="results2.rda", {
 })
 ```
 
-
-
-```{r}
+```{r echo=FALSE}
 results %>% bind_rows(results2) %>% 
   filter(is.finite(loglik)) %>% 
   arrange(-loglik) %>% 
   filter(is.finite(loglik)) %>%
   filter(loglik>max(loglik)-10) -> all
 all <- all[all$loglik < -294, ]
-pairs(~loglik+Beta+mu_IR+mu_RS+eta,data=all,pch=16)
+# pairs(~loglik+Beta+mu_IR+mu_RS+eta,data=all,pch=16)
 ```
 
-```{r}
+```{r profile1, echo=FALSE}
 maxloglik <- max(all$loglik,na.rm=TRUE) 
 ci.cutoff <- maxloglik-0.5*qchisq(df=1,p=0.95)
 
@@ -361,7 +347,9 @@ all %>% filter(loglik>max(loglik)-0.5*qchisq(df=1,p=0.95)) %>%
 Beta_ci
 ```
 
-```{r}
+The profile likelihood curve for $\beta$ is quite flat, suggesting convergence issues, or at least non-linearity of the likelihood surface. However, we see that the model tends to favor higher values of $\beta$. An approximate 95% confidence interval for $\beta$, based on Wilks' Theorem, is given by $[0.55, 8.21]$. 
+
+```{r profile2, echo=FALSE}
 maxloglik <- max(all$loglik,na.rm=TRUE) 
 ci.cutoff <- maxloglik-0.5*qchisq(df=1,p=0.95)
 
@@ -378,8 +366,10 @@ all %>% filter(loglik>max(loglik)-0.5*qchisq(df=1,p=0.95)) %>%
 muIR_ci
 ```
 
+Here, we see that the model prefers middling values of the recovery rate $\mu_{IR}$, although the likelihood profile is not very distinct. A 95% confidence interval for $\mu_{IR}$ is given by $[0.30, 0.99]$.
 
-```{r}
+
+```{r profile3, echo=FALSE}
 maxloglik <- max(all$loglik,na.rm=TRUE) 
 ci.cutoff <- maxloglik-0.5*qchisq(df=1,p=0.95)
 
@@ -393,26 +383,27 @@ all %>% filter(loglik>max(loglik)-0.5*qchisq(df=1,p=0.95)) %>%
 muRS_ci
 ```
 
+The profile likelihood plot for $\mu_{RS}$ is so scattered as to be essentially useless; there is no real evidence for any particular value, given that the confidence interval essentially comprises the entire range of values.
 
+Overall, there is not enough evidence to conclude that these parameters are a good fit for the data. However, the underlying model and dynamics seem reasonable.
 
 ------------
 
 # 6. Conclusion
 
-* compare $\beta_1$ to $\beta_2$ - make conclusion about speed of info transmission between news sources
-* interpret $\mu_{IR}$, rate of recovery (hype factor) - how fast do trends fade?
-* interpret $\eta$, initial susceptible fraction - what is the reach of one influential person?
-* interpret $\mu_{RS_1}$, the resurgence rate - how often / likely to trends reoccur?
+Our parameter search was mostly inconclusive. However, it is clear that the model favors higher values of $\beta$, the information transmission rate. This both matches up with the data as well as intuition -- given the speed at which social media spreads news, it makes sense that the information transmission rate is on the higher side.
 
-* is there evidence that incorporating stock price results in a better fit? aka, is there evidence that stock price is an external forcing variable for search frequency?
+We can also interpret the recovery rate $\mu_{IR}$ as what we call the "hype factor" -- how quickly do trends fade in societal consciousness? Our parameter search revealed that the recovery rate should be smaller than the information transmission rate, which does seem to match up with the data. However, we would still expect the recovery rate to be somewhat larger in magnitude since there is a drastic decrease in search frequency right after the initial peak.
 
-* how well was the data modeled by the SIRS model? What can we say about the relationship between information and disease?
+The other two parameters turned out to be difficult to model effectively. The search did not converge on any particular values for the initial susceptible fraction $\eta$ or the resurgence rate $\mu_{RS}$! In particular, we would expect the resurgence rate $\mu_{RS}$ to be small in magnitude, but our optimization returned inconclusive results. This is most likely due to model mis-specification. 
+
+Overall, based on model diagnostics and some simulations, it is somewhat inconclusive whether or not our model is a good fit for the data. However, we believe the interpretability offered by compartmental models can be useful in understanding how information might spread like a pathogen. Previous research has already showed the utility in modeling information spread using epidemiological methods, and we hope this project has demonstrated some more evidence for such a claim.
 
 ------------
 
 # 7. Limitations 
 
-Our model was somewhat simplistic -- more sophisticated models could include additional susceptible states to differentiate between the speed of information spread in different media (i.e., social media vs. newspapers) [[7](https://larswillnat.files.wordpress.com/2014/05/2013-american-journalist-key-findings.pdf), [8](https://www.journalism.org/2015/07/14/the-evolving-role-of-news-on-twitter-and-facebook/)]. Another addition could be to model the resurgence rate $\mu_{RS}$ and reporting rate $\rho$ as time-varying.
+Our model was somewhat simplistic -- more sophisticated models could include additional susceptible states to differentiate between the speed of information spread in different media (i.e., social media vs. newspapers) [[6](https://larswillnat.files.wordpress.com/2014/05/2013-american-journalist-key-findings.pdf), [7](https://www.journalism.org/2015/07/14/the-evolving-role-of-news-on-twitter-and-facebook/)]. Another addition could be to model the resurgence rate $\mu_{RS}$ and reporting rate $\rho$ as time-varying.
   
 If we had more time, we would have included the value of $GME as a covariate. From there, we would have conducted a likelihood ratio test using Wilks' approximation to judge whether the model with or without the stock price was a better predictor of the data. This has many interesting implications; for example, we may be able to tell whether the stock price can be viewed as an external driver for the GameStop hype, or whether such search trends are self-driven. (Extrapolating further, we could even determine whether reverse causation is at play, and if the information spread is itself a driver for the stock price!)
   
@@ -430,13 +421,11 @@ On a computational note, we ran into many problems with infinite likelihoods due
 
 [4] [Google Trends](https://trends.google.com/trends/), Google. Accessed April 6, 2021.
 
-[5] [Yahoo Finance](https://finance.yahoo.com/), Yahoo. Accessed April 9, 2021.
+[5] [Investopedia](https://www.investopedia.com/terms/w/weekendeffect.asp), "Weekend Effect". Accessed April 13, 2021.
 
-[6] [Investopedia](https://www.investopedia.com/terms/w/weekendeffect.asp), "Weekend Effect". Accessed April 13, 2021.
+[6] [Indiana University](https://larswillnat.files.wordpress.com/2014/05/2013-american-journalist-key-findings.pdf), “The American Journalist in the Digital Age: Key Findings”. 2014.
 
-[7] [Indiana University](https://larswillnat.files.wordpress.com/2014/05/2013-american-journalist-key-findings.pdf), “The American Journalist in the Digital Age: Key Findings”. 2014.
-
-[8] [Pew Research Center](https://www.journalism.org/2015/07/14/the-evolving-role-of-news-on-twitter-and-facebook/), “The Evolving Role of News on Twitter and Facebook”. July 14, 2015.
+[7] [Pew Research Center](https://www.journalism.org/2015/07/14/the-evolving-role-of-news-on-twitter-and-facebook/), “The Evolving Role of News on Twitter and Facebook”. July 14, 2015.
 
 <div style='margin-top: 25px'>
 Our project took inspiration from the following former STATS 531 projects: [W20 Project 32](https://ionides.github.io/531w20/final_project/Project32/final.html) for the SIR model with delay, and <br> [W18 Project 13](https://ionides.github.io/531w18/final_project/13/final.html) and [W20 Project 34](https://ionides.github.io/531w20/final_project/Project34/final.html) for the idea of applying epidemiological models to information spread. All uncited statistical <br> methods, as well as the code used in this project, were adapted from the [STATS 531](https://ionides.github.io/531w21/) class notes.
