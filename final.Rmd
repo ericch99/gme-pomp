@@ -282,21 +282,33 @@ final_results[final_results$loglik == max(final_results$loglik),][, 7:8] %>%
   print()
 ```
 
+
+```{r simulation, echo=FALSE, warning=FALSE}
+params <- final_results[final_results$loglik == max(final_results$loglik),][,1:6]
+#params <- c(Beta=1.3,mu_IR=0.5,mu_RS=0.03,rho=0.4,eta=0.5,N=3000)
+SSIR %>%
+  simulate(params=params, nsim=30,format="data.frame",include.data=TRUE) -> sims
+
+sims %>% ggplot(aes(x=day,y=count,group=.id,color=.id=="data"))+ geom_line()+
+guides(color=FALSE)
+```
+
+
 -----------
 
 # 5. Model Diagnostics
 
 
+To compute the profile likelihoods for parameters we want to investigate means determining, for each value of parameter set, the best likelihood that the model can achieve. We will first bound the uncertainty by putting a box around the highest-likelihood estimates we have found so far.  
+
 ```{r}
-results[results$loglik < -293,] %>% 
+results%>% 
   filter(is.finite(loglik)) %>%
-  filter(loglik>max(loglik)-20,loglik.se<2) -> final
-
-apply(final, 2, function(x) mean(x)+2.5*sd(x))
-
-final %>% filter(Beta < 2.5, mu_RS < 10) %>% sapply(range) -> box
+  filter(loglik>max(loglik)-20,loglik.se<2) %>% sapply(range) -> box
 box
 ```
+
+
 
 ```{r}
 set.seed(1196696958) 
@@ -343,7 +355,12 @@ all %>% group_by(round(Beta,4)) %>% ungroup() %>%
   ggplot(aes(x=Beta,y=loglik))+ geom_point() + 
   geom_smooth(method="loess",span=1) + 
   geom_hline(color="red",yintercept=ci.cutoff)+ lims(y=maxloglik-c(10,0))
+
+all %>% filter(loglik>max(loglik)-0.5*qchisq(df=1,p=0.95)) %>% 
+  summarize(min=min(Beta),max=max(Beta)) -> Beta_ci
+Beta_ci
 ```
+
 ```{r}
 maxloglik <- max(all$loglik,na.rm=TRUE) 
 ci.cutoff <- maxloglik-0.5*qchisq(df=1,p=0.95)
@@ -355,26 +372,28 @@ all %>% filter(is.finite(loglik)) %>%
   ggplot(aes(x=mu_IR,y=loglik))+ geom_point() + 
   geom_smooth(method="loess",span=1)+ 
   geom_hline(color="red",yintercept=ci.cutoff)+ lims(y=maxloglik-c(5,0))
+
+all %>% filter(loglik>max(loglik)-0.5*qchisq(df=1,p=0.95)) %>% 
+  summarize(min=min(mu_IR),max=max(mu_IR)) -> muIR_ci
+muIR_ci
 ```
+
+
 ```{r}
 maxloglik <- max(all$loglik,na.rm=TRUE) 
 ci.cutoff <- maxloglik-0.5*qchisq(df=1,p=0.95)
 
-all %>% group_by(round(mu_RS,4)) %>% ungroup() %>%
+all %>% group_by(round(mu_RS,1)) %>% ungroup() %>%
   ggplot(aes(x=mu_RS,y=loglik))+ geom_point() + 
-  geom_smooth(method="loess",span=0.5) + 
-  geom_hline(color="red",yintercept=ci.cutoff)+ lims(y=maxloglik-c(10,0))
+  geom_smooth(method="loess",span=1) + 
+  geom_hline(color="red",yintercept=ci.cutoff)+ lims(y=maxloglik-c(3,0)) + xlim(0, 1.5)
+
+all %>% filter(loglik>max(loglik)-0.5*qchisq(df=1,p=0.95)) %>% 
+  summarize(min=min(mu_RS),max=max(mu_RS)) -> muRS_ci
+muRS_ci
 ```
 
-```{r}
-maxloglik <- max(all$loglik,na.rm=TRUE) 
-ci.cutoff <- maxloglik-0.5*qchisq(df=1,p=0.95)
 
-all %>% group_by(round(eta,4)) %>% ungroup() %>%
-  ggplot(aes(x=eta,y=loglik))+ geom_point() + 
-  geom_smooth(method="loess",span=0.5) + 
-  geom_hline(color="red",yintercept=ci.cutoff)+ lims(y=maxloglik-c(10,0))
-```
 
 ------------
 
