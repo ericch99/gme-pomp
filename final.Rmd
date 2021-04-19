@@ -212,7 +212,7 @@ paste0('log-likelihood: ', L1[1])
 ```{r iterations, echo=FALSE}
 # helps us debug -- we want to use 3 when actually running
 
-run_level <- 2
+run_level <- 1
 Np <- switch(run_level, 100, 1e3, 5e3)
 Nmif <- switch(run_level, 10, 100, 200)
 Nseq <- switch(run_level, 100, 500, 5000)
@@ -251,7 +251,7 @@ stew(file="results.rda", {
 Let's plot a scatterplot matrix to see if we can garner any insight into our likelihood surface.
 
 ```{r plot_results, echo=FALSE, fig.width=8, fig.height=8}
-results %>%
+results[results$loglik < -293,] %>%
 #write_csv("gme_params.csv")
 #read_csv("gme_params.csv") %>%
   filter(is.finite(loglik)) %>%
@@ -269,8 +269,7 @@ pairs(~loglik+Beta+mu_IR+mu_RS+eta, data=all,
 Finally, we obtain our best parameter set:
 
 ```{r best, echo=FALSE}
-results %>%
-filter(is.finite(loglik)) -> final_results
+results[results$loglik < -293,] %>% filter(is.finite(loglik)) -> final_results
 
 final_results[final_results$loglik == max(final_results$loglik),][,1:6] %>%
   as.matrix %>%
@@ -289,10 +288,13 @@ final_results[final_results$loglik == max(final_results$loglik),][, 7:8] %>%
 
 
 ```{r}
-results %>% 
+results[results$loglik < -293,] %>% 
   filter(is.finite(loglik)) %>%
-  filter(loglik>max(loglik)-10,loglik.se<3)%>%
-  sapply(range) -> box
+  filter(loglik>max(loglik)-20,loglik.se<2) -> final
+
+apply(final, 2, function(x) mean(x)+2.5*sd(x))
+
+final %>% filter(Beta < 2.5, mu_RS < 10) %>% sapply(range) -> box
 box
 ```
 
@@ -305,7 +307,6 @@ profile_design(
   nprof=15, type="runif"
 ) -> guesses2
 ```
-
 
 ```{r}
 stew(file="results2.rda", {
@@ -323,29 +324,57 @@ stew(file="results2.rda", {
 ```
 
 
+
 ```{r}
 results %>% bind_rows(results2) %>% 
   filter(is.finite(loglik)) %>% 
   arrange(-loglik) %>% 
   filter(is.finite(loglik)) %>%
   filter(loglik>max(loglik)-10) -> all
-
+all <- all[all$loglik < -294, ]
 pairs(~loglik+Beta+mu_IR+mu_RS+eta,data=all,pch=16)
 ```
 
 ```{r}
-maxloglik <- max(results$loglik,na.rm=TRUE) 
+maxloglik <- max(all$loglik,na.rm=TRUE) 
+ci.cutoff <- maxloglik-0.5*qchisq(df=1,p=0.95)
+
+all %>% group_by(round(Beta,4)) %>% ungroup() %>%
+  ggplot(aes(x=Beta,y=loglik))+ geom_point() + 
+  geom_smooth(method="loess",span=1) + 
+  geom_hline(color="red",yintercept=ci.cutoff)+ lims(y=maxloglik-c(10,0))
+```
+```{r}
+maxloglik <- max(all$loglik,na.rm=TRUE) 
 ci.cutoff <- maxloglik-0.5*qchisq(df=1,p=0.95)
 
 all %>% filter(is.finite(loglik)) %>% 
-  group_by(round(eta,5)) %>% 
+  group_by(round(mu_IR,4)) %>% 
   filter(rank(-loglik)<3) %>% ungroup() %>% 
-  filter(loglik>max(loglik)-20) %>% 
-  ggplot(aes(x=eta,y=loglik))+ geom_point() + 
-  geom_smooth(method="loess",span=0.25)+ 
+  filter(loglik>max(loglik)-30) %>% 
+  ggplot(aes(x=mu_IR,y=loglik))+ geom_point() + 
+  geom_smooth(method="loess",span=1)+ 
   geom_hline(color="red",yintercept=ci.cutoff)+ lims(y=maxloglik-c(5,0))
 ```
+```{r}
+maxloglik <- max(all$loglik,na.rm=TRUE) 
+ci.cutoff <- maxloglik-0.5*qchisq(df=1,p=0.95)
 
+all %>% group_by(round(mu_RS,4)) %>% ungroup() %>%
+  ggplot(aes(x=mu_RS,y=loglik))+ geom_point() + 
+  geom_smooth(method="loess",span=0.5) + 
+  geom_hline(color="red",yintercept=ci.cutoff)+ lims(y=maxloglik-c(10,0))
+```
+
+```{r}
+maxloglik <- max(all$loglik,na.rm=TRUE) 
+ci.cutoff <- maxloglik-0.5*qchisq(df=1,p=0.95)
+
+all %>% group_by(round(eta,4)) %>% ungroup() %>%
+  ggplot(aes(x=eta,y=loglik))+ geom_point() + 
+  geom_smooth(method="loess",span=0.5) + 
+  geom_hline(color="red",yintercept=ci.cutoff)+ lims(y=maxloglik-c(10,0))
+```
 
 ------------
 
