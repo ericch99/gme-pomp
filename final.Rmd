@@ -198,7 +198,7 @@ Since the search frequency data are normalized to have maximum $100$, it is diff
 
 We define an optimal set of parameters as one that maximizes the likelihood of the model. To do this, we use iterated filtering -- the IF2 algorithm -- to simulate and evaluate the likelihood of many randomly-chosen candidate parameter sets. As a benchmark, we compute the likelihood of the parameter set used in the simulation in the previous section:
 
-```{r benchmark, echo=FALSE, warning=FALSE, cache=TRUE}
+```{r benchmark, echo=FALSE, warning=FALSE}
 stew(file="benchmark.rda", {
   pf1 <- foreach(i=1:20,.export=c("SSIR","params"),c.packages='pomp') %dopar%
     pfilter(SSIR,Np=5000,params=params)
@@ -222,7 +222,7 @@ Nsim <- switch(run_level, 50, 100, 500)
 
 <!-- ACTUAL GLOBAL SEARCH -->
 
-```{r grid, cache=TRUE, echo=FALSE}
+```{r grid, echo=FALSE}
 runif_design(lower=c(Beta=0.1,mu_IR=0.1,mu_RS=0.01,eta=0.1,rho=0.1, N=1000), 
              upper=c(Beta=5,mu_IR=1,mu_RS=1,eta=1,rho=0.3, N=10000),
              nseq=Nseq) -> guesses
@@ -277,6 +277,8 @@ final_results[final_results$loglik == max(final_results$loglik),] %>%
 
 # 5. Model Diagnostics
 
+## 5.1. Simulations 
+
 To check model fit, let's simulate some values from the model using the optimal parameters we just found. 
 
 ```{r simulation, echo=FALSE, warning=FALSE}
@@ -289,6 +291,8 @@ sims %>% ggplot(aes(x=day,y=count,group=.id,color=.id=="data"))+ geom_line()+
 guides(color=FALSE)
 ```
 The simulations are still quite inconclusive! In general, the only similarities between the simulations and the actual data are that they tend to peak early on and stay lower after day 50 or so. There is still considerable variability.
+
+## 5.2. Profile Likelihoods
 
 Let's see if the associated profile confidence intervals give us any more information about parameter optimality.
 
